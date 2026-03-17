@@ -15,6 +15,7 @@ st.markdown("""
     }
     .stButton>button { width: 100%; border-radius: 4px; height: 3em; font-weight: bold; }
     footer {visibility: hidden;}
+    .stAlert { padding: 10px; font-size: 14px; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -24,44 +25,39 @@ if 'external_links' not in st.session_state: st.session_state.external_links = [
 if 'show_template' not in st.session_state: st.session_state.show_template = False
 
 def clear_all():
-    # 1. Clear Lists
     st.session_state.timeline_data = []
     st.session_state.external_links = []
     st.session_state.show_template = False
-    
-    # 2. Reset every widget key to original state
     widget_keys = ['raw_input', 'impact', 't_stamp', 't_desc', 'act_type', 'l_title', 'l_url', 'analysis', 'verdict', 'summary', 'steps']
     for key in widget_keys:
         if key in st.session_state:
-            if key == 'steps':
-                st.session_state[key] = []
-            elif key == 'act_type':
-                st.session_state[key] = "Normal Activity"
-            elif key == 'verdict':
-                st.session_state[key] = "Benign"
-            else:
-                st.session_state[key] = ""
+            if key == 'steps': st.session_state[key] = []
+            elif key == 'act_type': st.session_state[key] = "Normal Activity"
+            elif key == 'verdict': st.session_state[key] = "Benign"
+            else: st.session_state[key] = ""
 
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
-st.caption("v6.0 | SOC Investigation & Reporting Tool")
+st.caption("v6.3 | SOC Investigation & Reporting Tool")
 
-# --- SECTION 1: ALERT DATA ---
+# --- ALERT DATA ---
 st.subheader("📋 Alert Data")
+st.info("💡 Instructions: Paste the raw Kibana JSON export here.")
 raw_json = st.text_area("Paste Raw Kibana JSON", height=150, key="raw_input")
 st.divider()
 
-# --- SECTION 2: POTENTIAL IMPACT ---
+# --- POTENTIAL IMPACT ---
 st.subheader("🎯 Potential Impact")
-impact_text = st.text_area("Assess Operations, Data, and Reputation risk:", height=120, key="impact",
-    placeholder="Operations: ...\nData: ...\nReputation: ...")
+st.info("💡 Instructions: Define the risk to the environment.")
+impact_text = st.text_area("Impact Assessment:", height=120, key="impact")
 st.divider()
 
-# --- SECTION 3: TIMELINE ---
+# --- TIMELINE ---
 st.subheader("📅 Timeline of Events")
+st.info("💡 Instructions: Log technical milestones.")
 t_col1, t_col2 = st.columns(2)
 with t_col1: t_stamp = st.text_input("Timestamp", placeholder="HH:MM:SS", key="t_stamp")
-with t_col2: t_desc = st.text_input("Event Description", placeholder="e.g. User logged in...", key="t_desc")
+with t_col2: t_desc = st.text_input("Event Description", placeholder="e.g. Process executed...", key="t_desc")
 
 if st.button("Add Event to Timeline"):
     if t_stamp and t_desc:
@@ -75,14 +71,15 @@ if st.session_state.timeline_data:
         st.rerun()
 st.divider()
 
-# --- SECTION 4: TRIAGE & ANALYSIS ---
+# --- TRIAGE & ANALYSIS ---
 st.subheader("🔍 Triage & Analysis")
+st.info("💡 Instructions: Categorise the activity and provide technical details.")
 activity_type = st.selectbox("⚠️ Activity Type Detected:", ["Normal Activity", "Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
 
 with st.expander("🔗 External Investigation Links", expanded=True):
     l_col1, l_col2 = st.columns(2)
-    l_title = l_col1.text_input("Link Title", placeholder="VirusTotal", key="l_title")
-    l_url = l_col2.text_input("URL", placeholder="https://...", key="l_url")
+    l_title = l_col1.text_input("Link Title", key="l_title")
+    l_url = l_col2.text_input("URL", key="l_url")
     if st.button("Add Link"):
         if l_title and l_url:
             st.session_state.external_links.append({"title": l_title, "url": l_url})
@@ -94,13 +91,12 @@ with st.expander("🔗 External Investigation Links", expanded=True):
 analysis_val = st.text_area("Investigation Analysis Details:", height=150, key="analysis")
 st.divider()
 
-# --- SECTION 5: SUMMARY & CONCLUSION ---
+# --- SUMMARY & CONCLUSION ---
 st.subheader("🏁 Summary & Conclusion")
+st.info("💡 Instructions: Summarise your findings and verdict.")
 verdict = st.radio("Final Determination", ["Benign", "True Positive", "False Positive"], horizontal=True, key="verdict")
 summary_val = st.text_area("Final Summary", key="summary")
 next_steps = st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"], key="steps")
-
-st.divider()
 
 # --- GENERATE LOGIC ---
 if st.button("🚀 Generate Final Case Template", type="primary"):
@@ -110,7 +106,7 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
         st.session_state.show_template = True
 
 if st.session_state.show_template:
-    # 1. ALL FIELDS EXTRACTION
+    # 1. FULL LIST OF FIELDS TO EXTRACT
     fields = [
         "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", 
         "signal.rule.threat.technique.name", "kibana.alert.rule.threat.technique.id", 
@@ -131,43 +127,27 @@ if st.session_state.show_template:
         if match: 
             res[f] = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
 
-    def is_valid(val): 
-        return val and str(val).strip() not in ["", "Not Found", "N/A", "None", "[]"]
+    def is_valid(v): return v and str(v).strip() not in ["", "Not Found", "N/A", "None", "[]"]
 
-    # 2. Build Markdown Report
+    # 2. BUILD MARKDOWN
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
-    if is_valid(res.get('kibana.alert.reason')): 
-        md.append(f"**Alert Reason:** `{res['kibana.alert.reason']}`")
     
     md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
     
-    # Map all requested fields to readable names for the table
-    field_labels = {
-        "host.name": "Host Name", "user.name.text": "User Name", "winlog.event_id": "Winlog Event ID",
-        "kibana.alert.rule.threat.tactic.name": "MITRE Tactic", "signal.rule.threat.technique.name": "MITRE Technique",
-        "kibana.alert.rule.threat.technique.id": "Technique ID", "source.ip": "Source IP", "destination.ip": "Dest IP",
-        "url.original": "Original URL", "event.action": "Event Action", "http.proxy.status_code": "Proxy Status"
-    }
-
-    for key, label in field_labels.items():
-        if is_valid(res.get(key)):
-            md.append(f"| **{label}** | `{res[key]}` |")
-
-    # Add extra process info if found
-    if is_valid(res.get('process.parent.executable')): 
-        md += ["", "**Parent Process:**", f"```powershell\n{res['process.parent.executable']}\n```"]
-    if is_valid(res.get('process.command_line')): 
-        md += ["", "**Command Line:**", f"```powershell\n{res['process.command_line']}\n```"]
+    # DYNAMICALLY ADD ALL EXTRACTED FIELDS TO THE TABLE IF THEY HAVE DATA
+    for field in fields:
+        if is_valid(res.get(field)):
+            # Clean up the key name for the table (e.g., user.name.text -> User Name Text)
+            clean_label = field.replace('.', ' ').replace('_', ' ').title()
+            md.append(f"| **{clean_label}** | `{res[field]}` |")
 
     md += ["", "## 🎯 Potential Impact", impact_text or "N/A"]
-
     md += ["", "## 📅 Timeline", "| Timestamp | Event Description |", "| :--- | :--- |"]
     full_t = st.session_state.timeline_data + [{"Timestamp": res.get('kibana.alert.original_time', 'T0'), "Event Description": "**ALERT TRIGGERED**"}]
     for e in sorted(full_t, key=lambda x: x['Timestamp']):
         md.append(f"| `{e['Timestamp']}` | {e['Event Description']} |")
 
     md += ["", "## 🔍 Triage & Analysis", f"**Activity Type:** {activity_type}", "", "**Analysis Details:**", analysis_val or "Pending."]
-    
     if st.session_state.external_links:
         md += ["", "**External Links:**"]
         for l in st.session_state.external_links: md.append(f"- [{l['title']}]({l['url']})")
@@ -176,7 +156,6 @@ if st.session_state.show_template:
     for s in next_steps: md.append(f"- [x] {s}")
 
     final_md = "\n".join(md)
-    
     st.success("✅ Template Generated!")
     t1, t2 = st.tabs(["👁️ Preview", "📋 Copy Template"])
     with t1: st.markdown(final_md)
