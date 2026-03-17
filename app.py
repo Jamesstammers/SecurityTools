@@ -7,6 +7,7 @@ st.set_page_config(page_title="SOC Case Builder", page_icon="🛡️", layout="c
 
 st.markdown("""
     <style>
+    /* Dark mode friendly text areas */
     .stTextArea textarea, .stTextInput input { 
         font-family: 'Courier New', monospace !important; 
         font-size: 13px !important; 
@@ -31,7 +32,7 @@ def clear_all():
 
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
-st.caption("v4.8 | SOC Investigation & Reporting Tool")
+st.caption("v4.9 | SOC Investigation & Reporting Tool")
 
 # --- STEP 1: JSON INPUT ---
 raw_json = st.text_area("1. Paste Raw Kibana JSON", height=150, key="raw_input")
@@ -46,25 +47,29 @@ st.divider()
 
 # --- STEP 3: TIMELINE ---
 st.subheader("📅 3. Timeline of Events")
-t_col1, t_col2, t_col3 = st.columns()
+# Only 2 columns for the input fields as requested
+t_col1, t_col2 = st.columns(2)
 with t_col1: t_stamp = st.text_input("Timestamp", placeholder="HH:MM:SS")
 with t_col2: t_desc = st.text_input("Event Description", placeholder="e.g. User logged in...")
-with t_col3:
-    st.write(" ")
-    if st.button("Add Event"):
-        if t_stamp and t_desc:
-            st.session_state.timeline_data.append({"Timestamp": t_stamp, "Event Description": t_desc})
+
+if st.button("Add Event to Timeline"):
+    if t_stamp and t_desc:
+        st.session_state.timeline_data.append({"Timestamp": t_stamp, "Event Description": t_desc})
+        st.rerun()
 
 if st.session_state.timeline_data:
     st.table(st.session_state.timeline_data)
-st.caption("Note: The Alert Trigger will be added and sorted automatically.")
+    if st.button("Clear Timeline Table"):
+        st.session_state.timeline_data = []
+        st.rerun()
+st.caption("Note: The Alert Trigger will be added and sorted automatically in the final report.")
 
 st.divider()
 
 # --- STEP 4: POTENTIAL IMPACT ---
 st.subheader("🎯 4. Potential Impact")
-impact_text = st.text_area("Assess Operations, Data, and Reputation risk:", height=100, 
-    placeholder="Operations: ...\nData: ...\nReputation: ...")
+impact_text = st.text_area("Assess Operations, Data, and Reputation risk:", height=120, 
+    placeholder="Operations: (e.g., Service downtime)\nData: (e.g., Potential for exfiltration)\nReputation: (e.g., Regulatory compliance)")
 
 st.divider()
 
@@ -72,14 +77,21 @@ st.divider()
 st.subheader("🔍 5. Triage & Analysis")
 
 with st.expander("🔗 Add External Investigation Links", expanded=True):
-    l_col1, l_col2, l_col3 = st.columns([1.5, 2, 1])
+    l_col1, l_col2 = st.columns(2)
     with l_col1: l_title = st.text_input("Link Title", placeholder="e.g. VirusTotal")
     with l_col2: l_url = st.text_input("URL", placeholder="https://...")
-    with l_col3:
-        st.write(" ")
-        if st.button("Add Link"):
-            if l_title and l_url:
-                st.session_state.external_links.append({"title": l_title, "url": l_url})
+    
+    if st.button("Add Link"):
+        if l_title and l_url:
+            st.session_state.external_links.append({"title": l_title, "url": l_url})
+            st.rerun()
+
+    if st.session_state.external_links:
+        for link in st.session_state.external_links:
+            st.caption(f"✅ Added: **{link['title']}**")
+        if st.button("Clear All Links"):
+            st.session_state.external_links = []
+            st.rerun()
 
 analysis_val = st.text_area("Investigation Analysis Details:", height=150)
 
@@ -88,7 +100,7 @@ st.divider()
 # --- STEP 6: SUMMARY & VERDICT ---
 st.subheader("🏁 6. Summary & Conclusion")
 verdict = st.radio("Final Determination", ["Benign", "True Positive", "False Positive"], horizontal=True)
-summary_val = st.text_area("Summary", placeholder="Reasoning for verdict and incident overview...")
+summary_val = st.text_area("Final Summary", placeholder="Provide a solid reason for your verdict...")
 next_steps = st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"])
 
 st.divider()
@@ -98,7 +110,7 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
     if not raw_json.strip():
         st.error("❌ Please paste JSON first!")
     else:
-        # Extraction
+        # Extraction logic
         fields = ["kibana.alert.rule.name", "kibana.alert.original_time", "process.command_line", "process.parent.executable", "user.name.text", "host.name", "kibana.alert.rule.false_positives", "kibana.alert.reason"]
         results = {f: "" for f in fields}
         for f in fields:
@@ -133,39 +145,47 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
 
         md += ["", "## 🎯 Potential Impact", impact_text if impact_text else "N/A"]
 
-        md += ["", "## 🔍 Triage and Analysis Steps", "1. Refer to official Investigation Guide.", "2. Verified against typical user behaviour.", f"3. Baseline check: {results.get('kibana.alert.rule.false_positives', 'N/A')}", "", "**Analysis Details:**", analysis_val if analysis_val else "Pending."]
+        md += ["", "## 🔍 Triage and Analysis Steps", 
+               "1. Refer to official Investigation Guide.", 
+               "2. Verified against typical user behaviour.", 
+               f"3. Baseline check: {results.get('kibana.alert.rule.false_positives', 'N/A')}", 
+               "", "**Analysis Details:**", analysis_val if analysis_val else "Pending."]
 
         if st.session_state.external_links:
             md += ["", "## 🔗 External Investigation Links"]
             for link in st.session_state.external_links:
                 md.append(f"- [{link['title']}]({link['url']})")
 
-        # THE FIX: SUMMARY IS NOW ITS OWN SECTION
+        # --- SEPARATE SUMMARY SECTION ---
         md += ["", "## 🗒️ Summary", summary_val if summary_val else "No summary provided."]
 
+        # --- FINAL CONCLUSION ---
         md += ["", "## 🏁 Conclusion and Next Steps", f"**Final Determination:** {verdict}", "", "**Next Steps:**"]
-        for s in next_steps: md.append(f"- [x] {s}")
+        for s in next_steps:
+            md.append(f"- [x] {s}")
 
         final_md = "\n".join(md)
 
-        # Output
-        tab1, tab2 = st.tabs(["👁️ Preview", "📋 Copy Template"])
+        # Output Tabs
+        st.success("✅ Case Template Generated!")
+        tab1, tab2 = st.tabs(["👁️ Visual Preview", "📋 Copy Template"])
         with tab1: st.markdown(final_md)
         with tab2:
             copy_html = f"""
             <div style="background-color: white; border: 1px solid #ddd; padding: 15px; border-radius: 8px;">
                 <button id="btn" onclick="copy()" style="background-color: #007bff; color: white; width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📋 Copy Final Case to Clipboard</button>
-                <textarea id="out" style="width: 100%; height: 350px; margin-top: 10px; font-family: monospace; color: #111;">{final_md}</textarea>
+                <textarea id="out" style="width: 100%; height: 400px; margin-top: 10px; font-family: monospace; color: #111;">{final_md}</textarea>
             </div>
             <script>
             function copy() {{
                 var t = document.getElementById("out"); var b = document.getElementById("btn");
                 t.select(); document.execCommand("copy");
                 b.innerHTML = "✅ Copied!"; b.style.backgroundColor = "#28a745";
-                setTimeout(function() {{ b.innerHTML = "📋 Copy to Clipboard"; b.style.backgroundColor = "#007bff"; }}, 2000);
+                setTimeout(function() {{ b.innerHTML = "📋 Copy Final Case to Clipboard"; b.style.backgroundColor = "#007bff"; }}, 2000);
             }}
             </script>
             """
-            html(copy_html, height=450)
+            html(copy_html, height=550)
 
+st.divider()
 st.button("Reset All Fields", on_click=clear_all)
