@@ -3,7 +3,7 @@ import re
 from streamlit.components.v1 import html
 
 # 1. PAGE CONFIGURATION
-st.set_page_config(page_title="SOC Case Generator", page_icon="🛡️", layout="centered")
+st.set_page_config(page_title="CDOC Kibana Case Template Generator", page_icon="🛡️", layout="centered")
 
 # Custom CSS for fixing text colors, alignment, and button text wrapping
 st.markdown("""
@@ -47,7 +47,7 @@ header_col1, header_col2 = st.columns([1, 4])
 with header_col1:
     st.markdown("# 🛡️")
 with header_col2:
-    st.title("Incident Case Generator")
+    st.title("CDOC Kibana Case Template Generator")
     st.caption("v2.9 | Security Operations Centre | Internal Tool")
 
 # --- INSTRUCTIONS ---
