@@ -42,19 +42,19 @@ st.caption("v6.3 | SOC Investigation & Reporting Tool")
 
 # --- ALERT DATA ---
 st.subheader("📋 Alert Data")
-st.info("💡 Instructions: Paste the raw Kibana JSON export here.")
+st.info("💡 Expand the alert and click on the JSON tab. Click the "Copy to clipboard" button in the top right. Paste the raw Kibana JSON export here.")
 raw_json = st.text_area("Paste Raw Kibana JSON", height=150, key="raw_input")
 st.divider()
 
 # --- POTENTIAL IMPACT ---
 st.subheader("🎯 Potential Impact")
-st.info("💡 Instructions: Define the risk to the environment.")
+st.info("💡 : Evaluate the potential damage or risk to operations, data, and reputation.")
 impact_text = st.text_area("Impact Assessment:", height=120, key="impact")
 st.divider()
 
-# --- TIMELINE ---
+# --- TIMELINE OF EVENTS ---
 st.subheader("📅 Timeline of Events")
-st.info("💡 Instructions: Log technical milestones.")
+st.info("💡 Log all related activity. When inputting events here, enter the timestamp in format YYYY-MM-DDTHH:MM:SS.000Z. You do no have to enter events in chronological order in this table - they will be organised at the end")
 t_col1, t_col2 = st.columns(2)
 with t_col1: t_stamp = st.text_input("Timestamp", placeholder="HH:MM:SS", key="t_stamp")
 with t_col2: t_desc = st.text_input("Event Description", placeholder="e.g. Process executed...", key="t_desc")
@@ -73,7 +73,7 @@ st.divider()
 
 # --- TRIAGE & ANALYSIS ---
 st.subheader("🔍 Triage & Analysis")
-st.info("💡 Instructions: Categorise the activity and provide technical details.")
+st.info("💡 Categorise the activity and provide technical details. Use the investigation guide to assist you. Correlate Alerts with additional data sources, Perform in-depth analysis and validation and Consult with internal stakeholders")
 activity_type = st.selectbox("⚠️ Activity Type Detected:", ["Normal Activity", "Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
 
 with st.expander("🔗 External Investigation Links", expanded=True):
@@ -93,8 +93,8 @@ st.divider()
 
 # --- SUMMARY & CONCLUSION ---
 st.subheader("🏁 Summary & Conclusion")
-st.info("💡 Instructions: Summarise your findings and verdict.")
-verdict = st.radio("Final Determination", ["Benign", "True Positive", "False Positive"], horizontal=True, key="verdict")
+st.info("💡 Summarise your findings and verdict. Include a clear reason as to why this event has been categorised this way")
+verdict = st.radio("Final Categorisation", ["Benign", "True Positive", "False Positive"], horizontal=True, key="verdict")
 summary_val = st.text_area("Final Summary", key="summary")
 next_steps = st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"], key="steps")
 
