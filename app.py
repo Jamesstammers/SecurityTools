@@ -26,11 +26,10 @@ if 'show_template' not in st.session_state: st.session_state.show_template = Fal
 def clear_all():
     for key in list(st.session_state.keys()):
         del st.session_state[key]
-    # Removed st.rerun() to fix the "no-op" error
 
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
-st.caption("v5.6 | SOC Investigation & Reporting Tool")
+st.caption("v5.7 | SOC Investigation & Reporting Tool")
 
 # --- SECTION 1: ALERT DATA ---
 st.subheader("📋 1. Alert Data")
@@ -63,9 +62,10 @@ st.divider()
 
 # --- SECTION 4: TRIAGE & ANALYSIS ---
 st.subheader("🔍 4. Triage & Analysis")
-activity_type = st.selectbox("⚠️ Activity Type Detected:", ["Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
+# Added "Normal Activity" option as requested
+activity_type = st.selectbox("⚠️ Activity Type Detected:", ["Normal Activity", "Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
 
-with st.expander("🔗 External Investigation Links"):
+with st.expander("🔗 External Investigation Links", expanded=True):
     l_col1, l_col2 = st.columns(2)
     l_title = l_col1.text_input("Link Title", placeholder="VirusTotal")
     l_url = l_col2.text_input("URL", placeholder="https://...")
@@ -73,6 +73,10 @@ with st.expander("🔗 External Investigation Links"):
         if l_title and l_url:
             st.session_state.external_links.append({"title": l_title, "url": l_url})
             st.rerun()
+    # Restored link tracking display
+    if st.session_state.external_links:
+        for link in st.session_state.external_links:
+            st.caption(f"✅ Added: **{link['title']}**")
 
 analysis_val = st.text_area("Investigation Analysis Details:", height=150, key="analysis")
 st.divider()
@@ -93,25 +97,44 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
         st.session_state.show_template = True
 
 if st.session_state.show_template:
-    fields = ["kibana.alert.rule.name", "process.command_line", "user.name.text", "host.name", "kibana.alert.original_time"]
+    # Restored the full extraction list from your original working version
+    fields = ["kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", "signal.rule.threat.technique.name", "kibana.alert.rule.threat.technique.id", "kibana.alert.rule.threat.technique.reference", "process.command_line", "process.parent.executable", "user.name.text", "host.name", "winlog.event_id", "kibana.alert.original_time", "kibana.alert.reason", "kibana.alert.rule.false_positives", "signal.rule.false_positives", "url.original", "source.enrichment.site_name_and_system", "destination.ip", "source.ip", "source.port", "destination.port", "destination.bytes", "user_agent.original", "event.action", "http.proxy.status_code", "hashicorp_vault.audit.request.headers.user-agent"]
+    
     res = {f: "" for f in fields}
     for f in fields:
         pattern = rf'"{re.escape(f)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
         match = re.search(pattern, raw_json, re.DOTALL)
         if match: res[f] = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
 
+    def is_valid(val): return val and str(val).strip() not in ["", "Not Found", "N/A", "None"]
+
     # Build Markdown Report
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
-    md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
-    if res.get('host.name'): md.append(f"| **Host** | `{res['host.name']}` |")
-    if res.get('user.name.text'): md.append(f"| **User** | `{res['user.name.text']}` |")
+    if is_valid(res.get('kibana.alert.reason')): md.append(f"`{res['kibana.alert.reason']}`")
     
+    md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
+    if is_valid(res.get('host.name')): md.append(f"| **Host Name** | `{res['host.name']}` |")
+    if is_valid(res.get('user.name.text')): md.append(f"| **User Name** | `{res['user.name.text']}` |")
+    
+    # Network details
+    if is_valid(res.get('source.ip')):
+        s = f"`{res['source.ip']}`"
+        if is_valid(res.get('source.port')): s += f":`{res['source.port']}`"
+        md.append(f"| **Source** | {s} |")
+    if is_valid(res.get('destination.ip')):
+        d = f"`{res['destination.ip']}`"
+        if is_valid(res.get('destination.port')): d += f":`{res['destination.port']}`"
+        md.append(f"| **Destination** | {d} |")
+    
+    if is_valid(res.get('process.parent.executable')): md += ["", "**Parent Process:**", f"```powershell\n{res['process.parent.executable']}\n```"]
+    if is_valid(res.get('process.command_line')): md += ["", "**Command Line:**", f"```powershell\n{res['process.command_line']}\n```"]
+
     md += ["", "## 🎯 Potential Impact", impact_text or "N/A"]
 
     md += ["", "## 📅 Timeline", "| Timestamp | Event Description |", "| :--- | :--- |"]
-    for e in st.session_state.timeline_data:
+    full_t = st.session_state.timeline_data + [{"Timestamp": res.get('kibana.alert.original_time', 'T0'), "Event Description": "**ALERT TRIGGERED**"}]
+    for e in sorted(full_t, key=lambda x: x['Timestamp']):
         md.append(f"| `{e['Timestamp']}` | {e['Event Description']} |")
-    md.append(f"| `{res.get('kibana.alert.original_time', 'T0')}` | **ALERT TRIGGERED** |")
 
     md += ["", "## 🔍 Triage & Analysis", f"**Activity Type:** {activity_type}", "", "**Analysis Details:**", analysis_val or "Pending."]
     
