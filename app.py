@@ -31,7 +31,7 @@ def clear_all():
 
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
-st.caption("v4.5 | SOC Investigation & Reporting Tool")
+st.caption("v4.6 | SOC Investigation & Reporting Tool")
 
 # --- STEP 1: JSON INPUT ---
 raw_json = st.text_area("1. Paste Raw Kibana JSON", height=150, key="raw_input")
@@ -46,7 +46,7 @@ st.divider()
 
 # --- STEP 3: TIMELINE ---
 st.subheader("📅 3. Timeline of Events")
-t_col1, t_col2, t_col3 = st.columns([1, 2, 1])
+t_col1, t_col2, t_col3 = st.columns([1,2,1])
 with t_col1: t_stamp = st.text_input("Time", placeholder="HH:MM:SS")
 with t_col2: t_desc = st.text_input("Event", placeholder="User action...")
 with t_col3:
@@ -73,7 +73,7 @@ st.subheader("🔍 5. Triage & Analysis")
 
 # Link Manager
 with st.expander("🔗 Add External Investigation Links (VT, JoeSandbox, etc.)", expanded=True):
-    l_col1, l_col2, l_col3 = st.columns([1, 2, 1])
+    l_col1, l_col2, l_col3 = st.columns([1.5, 2, 1])
     with l_col1: l_title = st.text_input("Link Title", placeholder="e.g. VirusTotal")
     with l_col2: l_url = st.text_input("URL", placeholder="https://...")
     with l_col3:
@@ -84,8 +84,8 @@ with st.expander("🔗 Add External Investigation Links (VT, JoeSandbox, etc.)",
 
     if st.session_state.external_links:
         for i, link in enumerate(st.session_state.external_links):
-            st.caption(f"✅ {link['title']}: {link['url']}")
-        if st.button("Clear Links"):
+            st.caption(f"✅ Added: **{link['title']}**")
+        if st.button("Clear All Links"):
             st.session_state.external_links = []
             st.rerun()
 
@@ -136,7 +136,7 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
 
         md += ["", "## 🔍 Triage and Analysis Steps", "1. Refer to official Investigation Guide.", "2. Verified against typical user behaviour.", f"3. Baseline check: {results.get('kibana.alert.rule.false_positives', 'N/A')}", "", "**Analysis:**", analysis_val if analysis_val else "Pending."]
 
-        # External Links Section
+        # External Links Section (Only titles shown as links)
         if st.session_state.external_links:
             md += ["", "## 🔗 External Investigation Links"]
             for link in st.session_state.external_links:
@@ -161,7 +161,7 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
                 var t = document.getElementById("out"); var b = document.getElementById("btn");
                 t.select(); document.execCommand("copy");
                 b.innerHTML = "✅ Copied!"; b.style.backgroundColor = "#28a745";
-                setTimeout(function() {{ b.innerHTML = "📋 Copy to Clipboard"; b.style.backgroundColor = "#007bff"; }}, 2000);
+                setTimeout(function() {{ b.innerHTML = "📋 Copy Final Case to Clipboard"; b.style.backgroundColor = "#007bff"; }}, 2000);
             }}
             </script>
             """
