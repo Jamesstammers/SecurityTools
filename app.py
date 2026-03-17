@@ -5,10 +5,10 @@ from streamlit.components.v1 import html
 # 1. PAGE CONFIGURATION
 st.set_page_config(page_title="SOC Case Generator", page_icon="🛡️", layout="centered")
 
-# Custom CSS for fixing text colors, centering buttons, and professional feel
+# Custom CSS for fixing text colors, alignment, and button text wrapping
 st.markdown("""
     <style>
-    /* Fix text area colors: Dark text on light grey background */
+    /* Fix text area colors */
     .stTextArea textarea { 
         font-family: 'Courier New', monospace; 
         font-size: 13px; 
@@ -16,22 +16,22 @@ st.markdown("""
         color: #1a1c23 !important; 
     }
     
-    /* Center the buttons */
-    div.stButton {
-        text-align: center;
+    /* Force buttons to be side-by-side and prevent text wrap */
+    [data-testid="stHorizontalBlock"] {
+        align-items: center;
+        display: flex;
+        justify-content: center;
     }
-    
+
     .stButton>button { 
-        width: 80%; 
+        width: 100%; 
+        white-space: nowrap; /* Prevents text from going to second line */
         border-radius: 4px; 
         height: 3em; 
         font-weight: bold; 
     }
     
     footer {visibility: hidden;}
-    
-    /* Style for the preview container */
-    .preview-box { border: 1px solid #dee2e6; border-radius: 8px; padding: 20px; background-color: white; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -48,7 +48,7 @@ with header_col1:
     st.markdown("# 🛡️")
 with header_col2:
     st.title("Incident Case Generator")
-    st.caption("v2.7 | Security Operations Centre | Internal Tool")
+    st.caption("v2.8 | Security Operations Centre | Internal Tool")
 
 # --- INPUT SECTION ---
 raw_text = st.text_area("Kibana JSON Data Source", 
@@ -57,7 +57,7 @@ raw_text = st.text_area("Kibana JSON Data Source",
                         key="raw_input",
                         placeholder='Paste the full alert JSON here...')
 
-# Centered Button Layout
+# Improved Button Layout with side-by-side forcing
 btn_col1, btn_col2 = st.columns(2)
 with btn_col1:
     generate_ready = st.button("🚀 Generate Template", type="primary")
@@ -108,7 +108,7 @@ if generate_ready:
             
             md_lines += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
             
-            # Add all the conditional metadata rows
+            # Metadata rows
             if is_valid(results.get('host.name')): md_lines.append(f"| **Host Name** | `{results['host.name']}` |")
             if is_valid(results.get('user.name.text')): md_lines.append(f"| **User Name** | `{results['user.name.text']}` |")
             if is_valid(results.get('event.action')): md_lines.append(f"| **Action** | `{results['event.action']}` |")
