@@ -19,47 +19,79 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# Initialize Session States
 if 'timeline_data' not in st.session_state: st.session_state.timeline_data = []
+if 'external_links' not in st.session_state: st.session_state.external_links = []
 
 def clear_all():
     st.session_state.timeline_data = []
+    st.session_state.external_links = []
     st.session_state.raw_input = ""
     st.rerun()
 
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
-st.caption("v4.4 | SOC Investigation & Reporting Tool")
+st.caption("v4.5 | SOC Investigation & Reporting Tool")
 
-# --- STEP 1-4 (Truncated for brevity, keep your existing code here) ---
+# --- STEP 1: JSON INPUT ---
 raw_json = st.text_area("1. Paste Raw Kibana JSON", height=150, key="raw_input")
-# ... [Include Activity, Timeline, and Impact sections from previous version] ...
 
 st.divider()
 
-# --- STEP 5: TRIAGE & ANALYSIS ---
+# --- STEP 2: ACTIVITY TYPE ---
+st.subheader("⚠️ 2. Activity Type")
+activity_type = st.selectbox("Type of activity detected:", ["Malware", "Hacking", "Social", "Misuse", "Physical", "Error"])
+
+st.divider()
+
+# --- STEP 3: TIMELINE ---
+st.subheader("📅 3. Timeline of Events")
+t_col1, t_col2, t_col3 = st.columns([1, 2, 1])
+with t_col1: t_stamp = st.text_input("Time", placeholder="HH:MM:SS")
+with t_col2: t_desc = st.text_input("Event", placeholder="User action...")
+with t_col3:
+    st.write(" ")
+    if st.button("Add Event"):
+        if t_stamp and t_desc:
+            st.session_state.timeline_data.append({"time": t_stamp, "desc": t_desc})
+            st.session_state.timeline_data.sort(key=lambda x: x['time'])
+
+if st.session_state.timeline_data:
+    st.table(st.session_state.timeline_data)
+
+st.divider()
+
+# --- STEP 4: POTENTIAL IMPACT ---
+st.subheader("🎯 4. Potential Impact")
+impact_text = st.text_area("Assess Operations, Data, and Reputation risk:", height=100, 
+    placeholder="Operations: ...\nData: ...\nReputation: ...")
+
+st.divider()
+
+# --- STEP 5: TRIAGE & EXTERNAL LINKS ---
 st.subheader("🔍 5. Triage & Analysis")
 
-# Hyperlink Helper Tool
-with st.expander("🔗 Hyperlink Helper (Optional)"):
-    st.caption("Generate markdown links to paste into your analysis below.")
-    link_col1, link_col2 = st.columns(2)
-    with link_col1:
-        link_title = st.text_input("Link Title", placeholder="e.g., VirusTotal Report")
-    with link_col2:
-        link_url = st.text_input("URL", placeholder="https://...")
-    
-    if link_title and link_url:
-        st.code(f"[{link_title}]({link_url})", language="markdown")
-        st.caption("👆 Copy this into the Analysis box below.")
+# Link Manager
+with st.expander("🔗 Add External Investigation Links (VT, JoeSandbox, etc.)", expanded=True):
+    l_col1, l_col2, l_col3 = st.columns([1, 2, 1])
+    with l_col1: l_title = st.text_input("Link Title", placeholder="e.g. VirusTotal")
+    with l_col2: l_url = st.text_input("URL", placeholder="https://...")
+    with l_col3:
+        st.write(" ")
+        if st.button("Add Link"):
+            if l_title and l_url:
+                st.session_state.external_links.append({"title": l_title, "url": l_url})
 
-analysis_val = st.text_area(
-    "Investigation Analysis Details:",
-    height=200,
-    placeholder="Describe your findings here. You can use markdown or paste links from the helper above."
-)
+    if st.session_state.external_links:
+        for i, link in enumerate(st.session_state.external_links):
+            st.caption(f"✅ {link['title']}: {link['url']}")
+        if st.button("Clear Links"):
+            st.session_state.external_links = []
+            st.rerun()
 
+analysis_val = st.text_area("Investigation Analysis Details:", height=150)
 verdict = st.radio("Final Determination", ["Benign", "True Positive", "False Positive"], horizontal=True)
-summary_val = st.text_area("Summary Statement", placeholder="Executive summary of the verdict...")
+summary_val = st.text_area("Summary Statement", height=100)
 next_steps = st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"])
 
 st.divider()
@@ -69,19 +101,70 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
     if not raw_json.strip():
         st.error("❌ Please paste JSON first!")
     else:
-        # ... [Keep your existing extraction logic here] ...
+        # Extraction
+        fields = ["kibana.alert.rule.name", "kibana.alert.original_time", "process.command_line", "process.parent.executable", "user.name.text", "host.name", "kibana.alert.rule.false_positives", "kibana.alert.reason"]
+        results = {f: "" for f in fields}
+        for f in fields:
+            pattern = rf'"{re.escape(f)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
+            match = re.search(pattern, raw_json, re.DOTALL)
+            if match: results[f] = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
+
+        # Build Markdown
+        md = [f"# 🛡️ {results.get('kibana.alert.rule.name', 'Security Alert')}"]
+        if results.get('kibana.alert.reason'): md.append(f"`{results['kibana.alert.reason']}`")
         
-        # Build Markdown (Section 5 Update)
-        # (Add your previous MD building logic here, then update Section 5:)
+        md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
+        if results.get('host.name'): md.append(f"| **Host Name** | `{results['host.name']}` |")
+        if results.get('user.name.text'): md.append(f"| **User Name** | `{results['user.name.text']}` |")
         
-        md_analysis = [
-            "", "## 🔍 Triage and Analysis Steps", 
-            "1. Refer to official Investigation Guide.", 
-            "2. Verified against typical user behaviour.", 
-            f"3. Baseline check: {results.get('kibana.alert.rule.false_positives', 'N/A')}",
-            "", "**Investigation Details:**",
-            analysis_val if analysis_val else "No detailed analysis provided."
-        ]
-        
-        # ... [Combine everything into final_md and show the Copy Box] ...
-        # (Use your previous final_md assembly and HTML copy box logic)
+        if results.get('process.parent.executable'):
+            md += ["", "**Parent Process:**", "```powershell", results['process.parent.executable'], "```"]
+        if results.get('process.command_line'):
+            md += ["", "**Command Line:**", "```powershell", results['process.command_line'], "```"]
+
+        md += ["", "## ⚠️ Activity Type Detected"]
+        for t in ["Malware", "Hacking", "Social", "Misuse", "Physical", "Error"]:
+            md.append(f"- [{'x' if t == activity_type else ' '}] {t}")
+
+        md += ["", "## 📅 Timeline of Events", "| Timestamp | Event Description |", "| :--- | :--- |"]
+        alert_time = results.get('kibana.alert.original_time', 'T0')
+        full_timeline = st.session_state.timeline_data + [{"time": alert_time, "desc": "**ALERT TRIGGERED**"}]
+        full_timeline.sort(key=lambda x: x['time'])
+        for e in full_timeline: md.append(f"| `{e['time']}` | {e['desc']} |")
+
+        md += ["", "## 🎯 Potential Impact", impact_text if impact_text else "N/A"]
+
+        md += ["", "## 🔍 Triage and Analysis Steps", "1. Refer to official Investigation Guide.", "2. Verified against typical user behaviour.", f"3. Baseline check: {results.get('kibana.alert.rule.false_positives', 'N/A')}", "", "**Analysis:**", analysis_val if analysis_val else "Pending."]
+
+        # External Links Section
+        if st.session_state.external_links:
+            md += ["", "## 🔗 External Investigation Links"]
+            for link in st.session_state.external_links:
+                md.append(f"- [{link['title']}]({link['url']})")
+
+        md += ["", "## 🏁 Summary, Conclusion, and Next Steps", f"**Final Determination:** {verdict}", "", f"**Summary:** {summary_val}", "", "**Next Steps:**"]
+        for s in next_steps: md.append(f"- [x] {s}")
+
+        final_md = "\n".join(md)
+
+        # Output
+        tab1, tab2 = st.tabs(["👁️ Preview", "📋 Copy Template"])
+        with tab1: st.markdown(final_md)
+        with tab2:
+            copy_html = f"""
+            <div style="background-color: white; border: 1px solid #ddd; padding: 15px; border-radius: 8px;">
+                <button id="btn" onclick="copy()" style="background-color: #007bff; color: white; width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📋 Copy Final Case to Clipboard</button>
+                <textarea id="out" style="width: 100%; height: 350px; margin-top: 10px; font-family: monospace; color: #111;">{final_md}</textarea>
+            </div>
+            <script>
+            function copy() {{
+                var t = document.getElementById("out"); var b = document.getElementById("btn");
+                t.select(); document.execCommand("copy");
+                b.innerHTML = "✅ Copied!"; b.style.backgroundColor = "#28a745";
+                setTimeout(function() {{ b.innerHTML = "📋 Copy to Clipboard"; b.style.backgroundColor = "#007bff"; }}, 2000);
+            }}
+            </script>
+            """
+            html(copy_html, height=450)
+
+st.button("Reset All Fields", on_click=clear_all)
