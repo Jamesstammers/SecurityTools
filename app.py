@@ -25,7 +25,7 @@ st.markdown("""
 
     .stButton>button { 
         width: 100%; 
-        white-space: nowrap; /* Prevents text from going to second line */
+        white-space: nowrap; 
         border-radius: 4px; 
         height: 3em; 
         font-weight: bold; 
@@ -48,16 +48,19 @@ with header_col1:
     st.markdown("# 🛡️")
 with header_col2:
     st.title("Incident Case Generator")
-    st.caption("v2.8 | Security Operations Centre | Internal Tool")
+    st.caption("v2.9 | Security Operations Centre | Internal Tool")
+
+# --- INSTRUCTIONS ---
+st.info("💡 **Instructions:** Copy your raw JSON from the Kibana alert log into the box below and click **Generate Template**.")
 
 # --- INPUT SECTION ---
 raw_text = st.text_area("Kibana JSON Data Source", 
                         value=st.session_state.raw_input, 
                         height=200, 
                         key="raw_input",
-                        placeholder='Paste the full alert JSON here...')
+                        placeholder='Paste JSON here...')
 
-# Improved Button Layout with side-by-side forcing
+# Improved Button Layout
 btn_col1, btn_col2 = st.columns(2)
 with btn_col1:
     generate_ready = st.button("🚀 Generate Template", type="primary")
@@ -100,7 +103,6 @@ if generate_ready:
         with st.spinner('Processing...'):
             results = extract_fields(raw_text)
             
-            # Start Building Markdown
             rule_title = results.get('kibana.alert.rule.name', 'Security Alert Investigation')
             md_lines = [f"# 🛡️ {rule_title}"]
             if is_valid(results.get('kibana.alert.reason')):
@@ -108,7 +110,6 @@ if generate_ready:
             
             md_lines += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
             
-            # Metadata rows
             if is_valid(results.get('host.name')): md_lines.append(f"| **Host Name** | `{results['host.name']}` |")
             if is_valid(results.get('user.name.text')): md_lines.append(f"| **User Name** | `{results['user.name.text']}` |")
             if is_valid(results.get('event.action')): md_lines.append(f"| **Action** | `{results['event.action']}` |")
@@ -124,7 +125,6 @@ if generate_ready:
             
             if is_valid(results.get('url.original')): md_lines.append(f"| **URL** | `{results['url.original']}` |")
             
-            # MITRE
             if is_valid(results.get('signal.rule.threat.technique.name')):
                 tech_id = results.get('kibana.alert.rule.threat.technique.id', '')
                 md_lines.append(f"| **MITRE Technique** | {results['signal.rule.threat.technique.name']} ({tech_id}) |")
@@ -160,12 +160,10 @@ if generate_ready:
 
             final_markdown = "\n".join(md_lines)
 
-            # --- TABS FOR PREVIEW VS COPY ---
             st.divider()
             tab1, tab2 = st.tabs(["👁️ Visual Preview", "📋 Raw Template (Copy)"])
 
             with tab1:
-                st.info("Visual representation of the final Kibana Case.")
                 st.markdown(final_markdown)
 
             with tab2:
