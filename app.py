@@ -42,7 +42,7 @@ st.caption("v6.3 | SOC Investigation & Reporting Tool")
 
 # --- ALERT DATA ---
 st.subheader("📋 Alert Data")
-st.info("💡 Expand the alert and click on the JSON tab. Click the "Copy to clipboard" button in the top right. Paste the raw Kibana JSON export here.")
+st.info("💡 Expand the alert and click on the JSON tab. Click the \"Copy to clipboard\" button in the top right. Paste the raw Kibana JSON export here.")
 raw_json = st.text_area("Paste Raw Kibana JSON", height=150, key="raw_input")
 st.divider()
 
