@@ -31,7 +31,7 @@ def clear_all():
 
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
-st.caption("v4.6 | SOC Investigation & Reporting Tool")
+st.caption("v4.7 | SOC Investigation & Reporting Tool")
 
 # --- STEP 1: JSON INPUT ---
 raw_json = st.text_area("1. Paste Raw Kibana JSON", height=150, key="raw_input")
@@ -46,15 +46,16 @@ st.divider()
 
 # --- STEP 3: TIMELINE ---
 st.subheader("📅 3. Timeline of Events")
-t_col1, t_col2, t_col3 = st.columns([1,2,1])
-with t_col1: t_stamp = st.text_input("Time", placeholder="HH:MM:SS")
-with t_col2: t_desc = st.text_input("Event", placeholder="User action...")
+t_col1, t_col2, t_col3 = st.columns([1, 2, 1])
+with t_col1: t_stamp = st.text_input("Timestamp", placeholder="HH:MM:SS")
+with t_col2: t_desc = st.text_input("Event Description", placeholder="e.g. User logged in...")
 with t_col3:
     st.write(" ")
     if st.button("Add Event"):
         if t_stamp and t_desc:
-            st.session_state.timeline_data.append({"time": t_stamp, "desc": t_desc})
-            st.session_state.timeline_data.sort(key=lambda x: x['time'])
+            st.session_state.timeline_data.append({"Timestamp": t_stamp, "Event Description": t_desc})
+            # Sorting happens at generation to ensure Alert is included correctly
+st.caption("The Alert Trigger will be added automatically to the final report.")
 
 if st.session_state.timeline_data:
     st.table(st.session_state.timeline_data)
@@ -71,8 +72,7 @@ st.divider()
 # --- STEP 5: TRIAGE & EXTERNAL LINKS ---
 st.subheader("🔍 5. Triage & Analysis")
 
-# Link Manager
-with st.expander("🔗 Add External Investigation Links (VT, JoeSandbox, etc.)", expanded=True):
+with st.expander("🔗 Add External Investigation Links", expanded=True):
     l_col1, l_col2, l_col3 = st.columns([1.5, 2, 1])
     with l_col1: l_title = st.text_input("Link Title", placeholder="e.g. VirusTotal")
     with l_col2: l_url = st.text_input("URL", placeholder="https://...")
@@ -83,11 +83,8 @@ with st.expander("🔗 Add External Investigation Links (VT, JoeSandbox, etc.)",
                 st.session_state.external_links.append({"title": l_title, "url": l_url})
 
     if st.session_state.external_links:
-        for i, link in enumerate(st.session_state.external_links):
+        for link in st.session_state.external_links:
             st.caption(f"✅ Added: **{link['title']}**")
-        if st.button("Clear All Links"):
-            st.session_state.external_links = []
-            st.rerun()
 
 analysis_val = st.text_area("Investigation Analysis Details:", height=150)
 verdict = st.radio("Final Determination", ["Benign", "True Positive", "False Positive"], horizontal=True)
@@ -126,23 +123,31 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
         for t in ["Malware", "Hacking", "Social", "Misuse", "Physical", "Error"]:
             md.append(f"- [{'x' if t == activity_type else ' '}] {t}")
 
+        # Timeline Construction
         md += ["", "## 📅 Timeline of Events", "| Timestamp | Event Description |", "| :--- | :--- |"]
+        
+        # Merge Alert Trigger and Manual Events
         alert_time = results.get('kibana.alert.original_time', 'T0')
-        full_timeline = st.session_state.timeline_data + [{"time": alert_time, "desc": "**ALERT TRIGGERED**"}]
-        full_timeline.sort(key=lambda x: x['time'])
-        for e in full_timeline: md.append(f"| `{e['time']}` | {e['desc']} |")
+        full_timeline = st.session_state.timeline_data + [{"Timestamp": alert_time, "Event Description": "**ALERT TRIGGERED**"}]
+        # Sort chronologically by timestamp string
+        full_timeline.sort(key=lambda x: x['Timestamp'])
+        
+        for e in full_timeline:
+            md.append(f"| `{e['Timestamp']}` | {e['Event Description']} |")
 
         md += ["", "## 🎯 Potential Impact", impact_text if impact_text else "N/A"]
 
-        md += ["", "## 🔍 Triage and Analysis Steps", "1. Refer to official Investigation Guide.", "2. Verified against typical user behaviour.", f"3. Baseline check: {results.get('kibana.alert.rule.false_positives', 'N/A')}", "", "**Analysis:**", analysis_val if analysis_val else "Pending."]
+        md += ["", "## 🔍 Triage and Analysis Steps", "1. Refer to official Investigation Guide.", "2. Verified against typical user behaviour.", f"3. Baseline check: {results.get('kibana.alert.rule.false_positives', 'N/A')}", "", "**Analysis Details:**", analysis_val if analysis_val else "Pending."]
 
-        # External Links Section (Only titles shown as links)
         if st.session_state.external_links:
             md += ["", "## 🔗 External Investigation Links"]
             for link in st.session_state.external_links:
                 md.append(f"- [{link['title']}]({link['url']})")
 
-        md += ["", "## 🏁 Summary, Conclusion, and Next Steps", f"**Final Determination:** {verdict}", "", f"**Summary:** {summary_val}", "", "**Next Steps:**"]
+        # SUMMARY SECTION (Now its own section)
+        md += ["", "## 🗒️ Summary", summary_val if summary_val else "No summary provided."]
+
+        md += ["", "## 🏁 Conclusion and Next Steps", f"**Final Determination:** {verdict}", "", "**Next Steps:**"]
         for s in next_steps: md.append(f"- [x] {s}")
 
         final_md = "\n".join(md)
@@ -161,7 +166,7 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
                 var t = document.getElementById("out"); var b = document.getElementById("btn");
                 t.select(); document.execCommand("copy");
                 b.innerHTML = "✅ Copied!"; b.style.backgroundColor = "#28a745";
-                setTimeout(function() {{ b.innerHTML = "📋 Copy Final Case to Clipboard"; b.style.backgroundColor = "#007bff"; }}, 2000);
+                setTimeout(function() {{ b.innerHTML = "📋 Copy to Clipboard"; b.style.backgroundColor = "#007bff"; }}, 2000);
             }}
             </script>
             """
