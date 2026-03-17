@@ -48,7 +48,6 @@ with header_col1:
     st.markdown("# 🛡️")
 with header_col2:
     st.title("CDOC Kibana Case Template Generator")
-    st.caption("v2.9 | Security Operations Centre | Internal Tool")
 
 # --- INSTRUCTIONS ---
 st.info("💡 **Instructions:** Copy your raw JSON from the Kibana alert log into the box below and click **Generate Template**.")
