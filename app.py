@@ -5,10 +5,29 @@ from streamlit.components.v1 import html
 # 1. SETUP & STYLE
 st.set_page_config(page_title="SOC Case Builder", page_icon="🛡️", layout="centered")
 
-# Custom CSS for Professional UI
+# Custom CSS for Dark Mode Fixes and UI Polish
 st.markdown("""
     <style>
-    .stTextArea textarea { font-family: 'Courier New', monospace; font-size: 13px; background-color: #f1f3f6 !important; color: #1a1c23 !important; }
+    /* Force text areas to be readable in both Light and Dark mode */
+    .stTextArea textarea { 
+        font-family: 'Courier New', monospace !important; 
+        font-size: 13px !important; 
+        background-color: #f1f3f6 !important; 
+        color: #1a1c23 !important; 
+    }
+    
+    /* Fix for placeholder text visibility */
+    .stTextArea textarea::placeholder {
+        color: #6c757d !important;
+        opacity: 1;
+    }
+
+    /* Standard Input field fixes */
+    .stTextInput input {
+        background-color: #f1f3f6 !important;
+        color: #1a1c23 !important;
+    }
+
     .stButton>button { width: 100%; border-radius: 4px; height: 3em; font-weight: bold; }
     [data-testid="stHorizontalBlock"] { align-items: center; }
     footer {visibility: hidden;}
@@ -29,7 +48,7 @@ header_col1, header_col2 = st.columns([1, 4])
 with header_col1: st.markdown("# 🛡️")
 with header_col2:
     st.title("Incident Case Builder")
-    st.caption("v4.2 | SOC Investigation & Reporting Tool")
+    st.caption("v4.3 | SOC Investigation & Reporting Tool")
 
 st.info("💡 **Instructions:** Copy your raw JSON from the Kibana alert log into the box below, fill in your analysis, and click **Generate Final Template**.")
 
@@ -47,7 +66,7 @@ st.divider()
 
 # --- STEP 3: TIMELINE ---
 st.subheader("📅 3. Timeline of Events")
-t_col1, t_col2, t_col3 = st.columns([1, 2, 1])
+t_col1, t_col2, t_col3 = st.columns([2, 5, 2])
 with t_col1:
     t_stamp = st.text_input("Timestamp", placeholder="HH:MM:SS")
 with t_col2:
@@ -67,12 +86,17 @@ if st.session_state.timeline_data:
 
 st.divider()
 
-# --- STEP 4: POTENTIAL IMPACT (Simplified) ---
+# --- STEP 4: POTENTIAL IMPACT ---
 st.subheader("🎯 4. Potential Impact")
+impact_prompt = (
+    "Operations: (e.g., Service downtime, system lockdown)\n"
+    "Data: (e.g., Potential for exfiltration, unauthorized modification)\n"
+    "Reputation: (e.g., Impact on customer trust, regulatory compliance)"
+)
 impact_text = st.text_area(
     "Assess the potential damage or risk to operations, data, and reputation:",
     height=150,
-    placeholder="Operations: (e.g., Service downtime, system lockdown)\nData: (e.g., Potential for exfiltration, unauthorized modification)\nReputation: (e.g., Impact on customer trust, regulatory compliance)"
+    placeholder=impact_prompt
 )
 
 st.divider()
@@ -96,12 +120,18 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
         st.error("❌ Please paste JSON first!")
     else:
         # Extraction
-        fields = ["kibana.alert.rule.name", "kibana.alert.original_time", "process.command_line", "process.parent.executable", "user.name.text", "host.name", "kibana.alert.rule.false_positives", "kibana.alert.reason"]
-        results = {}
+        fields = [
+            "kibana.alert.rule.name", "kibana.alert.original_time", 
+            "process.command_line", "process.parent.executable", 
+            "user.name.text", "host.name", 
+            "kibana.alert.rule.false_positives", "kibana.alert.reason"
+        ]
+        results = {f: "" for f in fields}
         for f in fields:
             pattern = rf'"{re.escape(f)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
             match = re.search(pattern, raw_json, re.DOTALL)
-            results[f] = match.group(1).replace('\\\\', '\\').replace('\\"', '"') if match else ""
+            if match:
+                results[f] = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
 
         # Build Markdown
         md = [f"# 🛡️ {results.get('kibana.alert.rule.name', 'Security Alert')}"]
@@ -129,9 +159,14 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
 
         md += ["", "## 🎯 Potential Impact", impact_text if impact_text else "Pending assessment."]
 
-        md += ["", "## 🔍 Triage and Analysis Steps", "1. Refer to official Investigation Guide.", "2. Verified against typical user behaviour.", f"3. Baseline check: {results.get('kibana.alert.rule.false_positives', 'N/A')}"]
+        md += ["", "## 🔍 Triage and Analysis Steps", 
+               "1. Refer to official Investigation Guide.", 
+               "2. Verified against typical user behaviour.", 
+               f"3. Baseline check: {results.get('kibana.alert.rule.false_positives', 'N/A')}"]
         
-        md += ["", "## 🏁 Summary, Conclusion, and Next Steps", f"**Final Determination:** {verdict}", "", f"**Summary:** {summary_val}", "", "**Next Steps:**"]
+        md += ["", "## 🏁 Summary, Conclusion, and Next Steps", 
+               f"**Final Determination:** {verdict}", 
+               "", f"**Summary:** {summary_val}", "", "**Next Steps:**"]
         for s in next_steps: md.append(f"- [x] {s}")
 
         final_md = "\n".join(md)
@@ -142,9 +177,9 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
         with tab1: st.markdown(final_md)
         with tab2:
             copy_html = f"""
-            <div style="background-color: white; border: 1px solid #ddd; padding: 15px; border-radius: 8px;">
+            <div style="background-color: white; border: 1px solid #ddd; padding: 15px; border-radius: 8px; color: #111;">
                 <button id="btn" onclick="copy()" style="background-color: #007bff; color: white; width: 100%; padding: 10px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">📋 Copy to Clipboard</button>
-                <textarea id="out" style="width: 100%; height: 350px; margin-top: 10px;">{final_md}</textarea>
+                <textarea id="out" style="width: 100%; height: 350px; margin-top: 10px; font-family: monospace; color: #111;">{final_md}</textarea>
             </div>
             <script>
             function copy() {{
@@ -157,5 +192,4 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
             """
             html(copy_html, height=450)
 
-if st.button("Reset Everything", on_click=clear_all):
-    pass
+st.button("Reset Everything", on_click=clear_all)
