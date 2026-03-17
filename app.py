@@ -47,18 +47,18 @@ st.title("🛡️ Incident Case Builder")
 st.caption("v6.0 | SOC Investigation & Reporting Tool")
 
 # --- SECTION 1: ALERT DATA ---
-st.subheader("📋 1. Alert Data")
+st.subheader("📋 Alert Data")
 raw_json = st.text_area("Paste Raw Kibana JSON", height=150, key="raw_input")
 st.divider()
 
 # --- SECTION 2: POTENTIAL IMPACT ---
-st.subheader("🎯 2. Potential Impact")
+st.subheader("🎯 Potential Impact")
 impact_text = st.text_area("Assess Operations, Data, and Reputation risk:", height=120, key="impact",
     placeholder="Operations: ...\nData: ...\nReputation: ...")
 st.divider()
 
 # --- SECTION 3: TIMELINE ---
-st.subheader("📅 3. Timeline of Events")
+st.subheader("📅 Timeline of Events")
 t_col1, t_col2 = st.columns(2)
 with t_col1: t_stamp = st.text_input("Timestamp", placeholder="HH:MM:SS", key="t_stamp")
 with t_col2: t_desc = st.text_input("Event Description", placeholder="e.g. User logged in...", key="t_desc")
@@ -76,7 +76,7 @@ if st.session_state.timeline_data:
 st.divider()
 
 # --- SECTION 4: TRIAGE & ANALYSIS ---
-st.subheader("🔍 4. Triage & Analysis")
+st.subheader("🔍 Triage & Analysis")
 activity_type = st.selectbox("⚠️ Activity Type Detected:", ["Normal Activity", "Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
 
 with st.expander("🔗 External Investigation Links", expanded=True):
@@ -95,7 +95,7 @@ analysis_val = st.text_area("Investigation Analysis Details:", height=150, key="
 st.divider()
 
 # --- SECTION 5: SUMMARY & CONCLUSION ---
-st.subheader("🏁 5. Summary & Conclusion")
+st.subheader("🏁 Summary & Conclusion")
 verdict = st.radio("Final Determination", ["Benign", "True Positive", "False Positive"], horizontal=True, key="verdict")
 summary_val = st.text_area("Final Summary", key="summary")
 next_steps = st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"], key="steps")
