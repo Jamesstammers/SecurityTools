@@ -31,7 +31,7 @@ def clear_all():
 
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
-st.caption("v4.7 | SOC Investigation & Reporting Tool")
+st.caption("v4.8 | SOC Investigation & Reporting Tool")
 
 # --- STEP 1: JSON INPUT ---
 raw_json = st.text_area("1. Paste Raw Kibana JSON", height=150, key="raw_input")
@@ -46,7 +46,7 @@ st.divider()
 
 # --- STEP 3: TIMELINE ---
 st.subheader("📅 3. Timeline of Events")
-t_col1, t_col2, t_col3 = st.columns([1, 2, 1])
+t_col1, t_col2, t_col3 = st.columns()
 with t_col1: t_stamp = st.text_input("Timestamp", placeholder="HH:MM:SS")
 with t_col2: t_desc = st.text_input("Event Description", placeholder="e.g. User logged in...")
 with t_col3:
@@ -54,11 +54,10 @@ with t_col3:
     if st.button("Add Event"):
         if t_stamp and t_desc:
             st.session_state.timeline_data.append({"Timestamp": t_stamp, "Event Description": t_desc})
-            # Sorting happens at generation to ensure Alert is included correctly
-st.caption("The Alert Trigger will be added automatically to the final report.")
 
 if st.session_state.timeline_data:
     st.table(st.session_state.timeline_data)
+st.caption("Note: The Alert Trigger will be added and sorted automatically.")
 
 st.divider()
 
@@ -82,13 +81,14 @@ with st.expander("🔗 Add External Investigation Links", expanded=True):
             if l_title and l_url:
                 st.session_state.external_links.append({"title": l_title, "url": l_url})
 
-    if st.session_state.external_links:
-        for link in st.session_state.external_links:
-            st.caption(f"✅ Added: **{link['title']}**")
-
 analysis_val = st.text_area("Investigation Analysis Details:", height=150)
+
+st.divider()
+
+# --- STEP 6: SUMMARY & VERDICT ---
+st.subheader("🏁 6. Summary & Conclusion")
 verdict = st.radio("Final Determination", ["Benign", "True Positive", "False Positive"], horizontal=True)
-summary_val = st.text_area("Summary Statement", height=100)
+summary_val = st.text_area("Summary", placeholder="Reasoning for verdict and incident overview...")
 next_steps = st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"])
 
 st.divider()
@@ -125,13 +125,9 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
 
         # Timeline Construction
         md += ["", "## 📅 Timeline of Events", "| Timestamp | Event Description |", "| :--- | :--- |"]
-        
-        # Merge Alert Trigger and Manual Events
         alert_time = results.get('kibana.alert.original_time', 'T0')
         full_timeline = st.session_state.timeline_data + [{"Timestamp": alert_time, "Event Description": "**ALERT TRIGGERED**"}]
-        # Sort chronologically by timestamp string
         full_timeline.sort(key=lambda x: x['Timestamp'])
-        
         for e in full_timeline:
             md.append(f"| `{e['Timestamp']}` | {e['Event Description']} |")
 
@@ -144,7 +140,7 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
             for link in st.session_state.external_links:
                 md.append(f"- [{link['title']}]({link['url']})")
 
-        # SUMMARY SECTION (Now its own section)
+        # THE FIX: SUMMARY IS NOW ITS OWN SECTION
         md += ["", "## 🗒️ Summary", summary_val if summary_val else "No summary provided."]
 
         md += ["", "## 🏁 Conclusion and Next Steps", f"**Final Determination:** {verdict}", "", "**Next Steps:**"]
