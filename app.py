@@ -25,14 +25,12 @@ if 'external_links' not in st.session_state: st.session_state.external_links = [
 if 'show_template' not in st.session_state: st.session_state.show_template = False
 
 def clear_all():
-    st.session_state.timeline_data = []
-    st.session_state.external_links = []
-    st.session_state.show_template = False
-    # Clear individual widget values via session state
-    for key in ['raw_input', 'act_type', 'impact', 'analysis', 'verdict', 'summary', 'steps']:
-        if key in st.session_state:
-            del st.session_state[key]
-    st.rerun()
+    # Clear all session state keys
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    # No st.rerun() needed here! 
+    # Streamlit triggers a rerun automatically after this callback ends.
+
 
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
