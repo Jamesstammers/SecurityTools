@@ -29,7 +29,7 @@ def clear_all():
 
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
-st.caption("v5.7 | SOC Investigation & Reporting Tool")
+st.caption("v5.8 | SOC Investigation & Reporting Tool")
 
 # --- SECTION 1: ALERT DATA ---
 st.subheader("📋 1. Alert Data")
@@ -62,7 +62,6 @@ st.divider()
 
 # --- SECTION 4: TRIAGE & ANALYSIS ---
 st.subheader("🔍 4. Triage & Analysis")
-# Added "Normal Activity" option as requested
 activity_type = st.selectbox("⚠️ Activity Type Detected:", ["Normal Activity", "Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
 
 with st.expander("🔗 External Investigation Links", expanded=True):
@@ -73,7 +72,6 @@ with st.expander("🔗 External Investigation Links", expanded=True):
         if l_title and l_url:
             st.session_state.external_links.append({"title": l_title, "url": l_url})
             st.rerun()
-    # Restored link tracking display
     if st.session_state.external_links:
         for link in st.session_state.external_links:
             st.caption(f"✅ Added: **{link['title']}**")
@@ -97,7 +95,7 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
         st.session_state.show_template = True
 
 if st.session_state.show_template:
-    # Restored the full extraction list from your original working version
+    # FULL ORIGINAL EXTRACTION LIST
     fields = ["kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", "signal.rule.threat.technique.name", "kibana.alert.rule.threat.technique.id", "kibana.alert.rule.threat.technique.reference", "process.command_line", "process.parent.executable", "user.name.text", "host.name", "winlog.event_id", "kibana.alert.original_time", "kibana.alert.reason", "kibana.alert.rule.false_positives", "signal.rule.false_positives", "url.original", "source.enrichment.site_name_and_system", "destination.ip", "source.ip", "source.port", "destination.port", "destination.bytes", "user_agent.original", "event.action", "http.proxy.status_code", "hashicorp_vault.audit.request.headers.user-agent"]
     
     res = {f: "" for f in fields}
@@ -113,19 +111,24 @@ if st.session_state.show_template:
     if is_valid(res.get('kibana.alert.reason')): md.append(f"`{res['kibana.alert.reason']}`")
     
     md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
-    if is_valid(res.get('host.name')): md.append(f"| **Host Name** | `{res['host.name']}` |")
-    if is_valid(res.get('user.name.text')): md.append(f"| **User Name** | `{res['user.name.text']}` |")
     
-    # Network details
-    if is_valid(res.get('source.ip')):
-        s = f"`{res['source.ip']}`"
-        if is_valid(res.get('source.port')): s += f":`{res['source.port']}`"
-        md.append(f"| **Source** | {s} |")
-    if is_valid(res.get('destination.ip')):
-        d = f"`{res['destination.ip']}`"
-        if is_valid(res.get('destination.port')): d += f":`{res['destination.port']}`"
-        md.append(f"| **Destination** | {d} |")
-    
+    # Mapping for cleaner display labels
+    display_mapping = {
+        "host.name": "Host Name",
+        "user.name.text": "User Name",
+        "kibana.alert.rule.threat.tactic.name": "MITRE Tactic",
+        "signal.rule.threat.technique.name": "MITRE Technique",
+        "kibana.alert.rule.threat.technique.id": "Technique ID",
+        "winlog.event_id": "Event ID",
+        "source.ip": "Source IP",
+        "destination.ip": "Dest IP",
+        "url.original": "URL",
+        "http.proxy.status_code": "Proxy Status"
+    }
+
+    for key, label in display_mapping.items():
+        if is_valid(res.get(key)): md.append(f"| **{label}** | `{res[key]}` |")
+
     if is_valid(res.get('process.parent.executable')): md += ["", "**Parent Process:**", f"```powershell\n{res['process.parent.executable']}\n```"]
     if is_valid(res.get('process.command_line')): md += ["", "**Command Line:**", f"```powershell\n{res['process.command_line']}\n```"]
 
