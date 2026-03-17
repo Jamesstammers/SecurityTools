@@ -1,6 +1,6 @@
 import streamlit as st
-import json
-from datetime import datetime
+import re
+from streamlit.components.v1 import html
 
 # 1. SETUP & STYLE
 st.set_page_config(page_title="SOC Case Builder", page_icon="🛡️", layout="centered")
@@ -24,44 +24,28 @@ if 'external_links' not in st.session_state: st.session_state.external_links = [
 if 'show_template' not in st.session_state: st.session_state.show_template = False
 
 def clear_all():
-    for key in st.session_state.keys():
+    for key in list(st.session_state.keys()):
         del st.session_state[key]
     st.rerun()
 
-def extract_nested_json(data, field_list):
-    """Recursively extracts fields from nested JSON."""
-    results = {f: "" for f in field_list}
-    def search(d, current_key=""):
-        if isinstance(d, dict):
-            for k, v in d.items():
-                new_key = f"{current_key}.{k}" if current_key else k
-                if new_key in field_list: results[new_key] = v
-                search(v, new_key)
-        elif isinstance(d, list):
-            for item in d: search(item, current_key)
-    search(data)
-    return results
-
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
-st.caption("v5.5 | SOC Investigation & Reporting Tool")
+st.caption("v5.2 | SOC Investigation & Reporting Tool")
 
 # --- STEP 1: JSON INPUT ---
 st.subheader("📋 1. Alert Data")
-raw_input = st.text_area("Paste Raw Kibana JSON", height=150, key="raw_input")
+raw_json = st.text_area("Paste Raw Kibana JSON", height=150, key="raw_input")
+
+st.divider()
 
 # --- STEP 2: ACTIVITY TYPE ---
-st.subheader("⚠️ 2. Activity Type")
-activity_type = st.selectbox("Type of activity detected:", ["Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
+activity_type = st.selectbox("⚠️ 2. Activity Type", ["Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
 
 # --- STEP 3: TIMELINE ---
 st.subheader("📅 3. Timeline of Events")
-t_col1, t_col2 = st.columns([1, 2])
-with t_col1: 
-    # Default to current time for efficiency
-    t_stamp = st.text_input("Timestamp", value=datetime.now().strftime("%H:%M:%S"), key="t_stamp")
-with t_col2: 
-    t_desc = st.text_input("Event Description", placeholder="e.g. Malicious file executed", key="t_desc")
+t_col1, t_col2 = st.columns(2)
+with t_col1: t_stamp = st.text_input("Timestamp", placeholder="HH:MM:SS")
+with t_col2: t_desc = st.text_input("Event Description", placeholder="e.g. User logged in...")
 
 if st.button("Add Event to Timeline"):
     if t_stamp and t_desc:
@@ -74,12 +58,13 @@ if st.session_state.timeline_data:
         st.session_state.timeline_data = []
         st.rerun()
 
-# --- STEP 4-6: IMPACT, ANALYSIS & VERDICT ---
-st.divider()
-impact_text = st.text_area("🎯 4. Potential Impact", height=100, key="impact", placeholder="Operations: ...\nData: ...")
+# --- STEP 4: POTENTIAL IMPACT ---
+impact_text = st.text_area("🎯 4. Potential Impact", height=120, key="impact",
+    placeholder="Operations: ...\nData: ...\nReputation: ...")
 
+# --- STEP 5: TRIAGE & EXTERNAL LINKS ---
 st.subheader("🔍 5. Triage & Analysis")
-with st.expander("🔗 Add External Investigation Links"):
+with st.expander("🔗 Add External Investigation Links", expanded=True):
     l_col1, l_col2 = st.columns(2)
     l_title = l_col1.text_input("Link Title", placeholder="VirusTotal")
     l_url = l_col2.text_input("URL", placeholder="https://...")
@@ -87,41 +72,51 @@ with st.expander("🔗 Add External Investigation Links"):
         if l_title and l_url:
             st.session_state.external_links.append({"title": l_title, "url": l_url})
             st.rerun()
+    if st.session_state.external_links:
+        for link in st.session_state.external_links:
+            st.caption(f"✅ Added: **{link['title']}**")
 
-analysis_val = st.text_area("Investigation Details:", height=150, key="analysis")
+analysis_val = st.text_area("Investigation Analysis Details:", height=150, key="analysis")
 
+# --- STEP 6: SUMMARY & VERDICT ---
 st.subheader("🏁 6. Summary & Conclusion")
 verdict = st.radio("Final Determination", ["Benign", "True Positive", "False Positive"], horizontal=True, key="verdict")
 summary_val = st.text_area("Final Summary", key="summary")
 next_steps = st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"], key="steps")
 
+st.divider()
+
 # --- GENERATE LOGIC ---
 if st.button("🚀 Generate Final Case Template", type="primary"):
-    if not raw_input.strip():
+    if not raw_json.strip():
         st.error("❌ Please paste JSON first!")
     else:
         st.session_state.show_template = True
 
 if st.session_state.show_template:
-    fields = ["kibana.alert.rule.name", "process.command_line", "process.parent.executable", "user.name.text", "host.name", "kibana.alert.original_time"]
-    try:
-        json_data = json.loads(raw_input)
-        res = extract_nested_json(json_data, fields)
-    except Exception:
-        st.error("⚠️ Invalid JSON format. Please check your input.")
-        res = {f: "N/A" for f in fields}
+    # RE-IMPLEMENTED REGEX EXTRACTION
+    fields = ["kibana.alert.rule.name", "kibana.alert.reason", "process.command_line", "process.parent.executable", "user.name.text", "host.name", "source.ip", "destination.ip", "kibana.alert.original_time"]
+    res = {f: "" for f in fields}
+    for f in fields:
+        pattern = rf'"{re.escape(f)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
+        match = re.search(pattern, raw_json, re.DOTALL)
+        if match: res[f] = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
 
-    # Build Markdown Report
-    md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
-    for label, key in [("Host", "host.name"), ("User", "user.name.text")]:
-        md.append(f"| **{label}** | `{res.get(key, 'N/A')}` |")
+    # Build MD
+    md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
+    if res.get('kibana.alert.reason'): md.append(f"`{res['kibana.alert.reason']}`")
+    md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
     
-    if res.get("process.command_line"):
+    for label, key in [("Host", "host.name"), ("User", "user.name.text"), ("Source IP", "source.ip"), ("Dest IP", "destination.ip")]:
+        if res.get(key): md.append(f"| **{label}** | `{res[key]}` |")
+    
+    if res.get('process.command_line'):
         md += ["", "**Command Line:**", f"```powershell\n{res['process.command_line']}\n```"]
 
     md += ["", "## 📅 Timeline", "| Timestamp | Event Description |", "| :--- | :--- |"]
     for e in st.session_state.timeline_data:
         md.append(f"| `{e['Timestamp']}` | {e['Event Description']} |")
+    md.append(f"| `{res.get('kibana.alert.original_time', 'T0')}` | **ALERT TRIGGERED** |")
 
     md += ["", "## 🎯 Impact", impact_text or "N/A", "## 🔍 Analysis", analysis_val or "Pending."]
     
@@ -134,11 +129,30 @@ if st.session_state.show_template:
 
     final_md = "\n".join(md)
     
+    st.success("✅ Template Generated!")
     t1, t2 = st.tabs(["👁️ Preview", "📋 Copy Template"])
     with t1: st.markdown(final_md)
     with t2:
-        st.info("Use the button in the top-right of the box below to copy.")
-        st.code(final_md, language="markdown") # Reliable copy feature
+        # Improved HTML Copy Component
+        html_code = f"""
+        <div style="font-family: sans-serif;">
+            <button id="cp_btn" onclick="copyToClipboard()" style="background-color: #007bff; color: white; border: none; padding: 12px; width: 100%; border-radius: 5px; cursor: pointer; font-weight: bold;">📋 Copy to Clipboard</button>
+            <textarea id="copy_area" style="width: 100%; height: 300px; margin-top: 10px; border: 1px solid #ccc; border-radius: 5px; padding: 10px; font-family: monospace;">{final_md}</textarea>
+        </div>
+        <script>
+        function copyToClipboard() {{
+            var copyText = document.getElementById("copy_area");
+            copyText.select();
+            copyText.setSelectionRange(0, 99999);
+            document.execCommand("copy");
+            var btn = document.getElementById("cp_btn");
+            btn.innerHTML = "✅ Copied!";
+            btn.style.backgroundColor = "#28a745";
+            setTimeout(function(){{ btn.innerHTML = "📋 Copy to Clipboard"; btn.style.backgroundColor = "#007bff"; }}, 2000);
+        }}
+        </script>
+        """
+        html(html_code, height=450)
 
 st.divider()
 st.button("🔄 Reset All Fields", on_click=clear_all)
