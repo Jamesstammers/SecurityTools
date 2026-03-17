@@ -31,7 +31,7 @@ def clear_all():
 
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
-st.caption("v5.0 | SOC Investigation & Reporting Tool")
+st.caption("v5.1 | SOC Investigation & Reporting Tool")
 
 # --- STEP 1: JSON INPUT ---
 raw_json = st.text_area("1. Paste Raw Kibana JSON", height=150, key="raw_input")
@@ -107,7 +107,7 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
     if not raw_json.strip():
         st.error("❌ Please paste JSON first!")
     else:
-        # FULL EXTRACTION LIST RESTORED
+        # FULL EXTRACTION LIST
         fields = [
             "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name",
             "signal.rule.threat.technique.name", "kibana.alert.rule.threat.technique.id",
@@ -155,7 +155,7 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
         
         if is_valid(results.get('destination.bytes')): md.append(f"| **Bytes Sent** | `{results['destination.bytes']}` |")
         if is_valid(results.get('url.original')): md.append(f"| **URL** | `{results['url.original']}` |")
-        if is_valid(results.get('http.proxy.status_code')): md_lines.append(f"| **Proxy Status** | `{results['http.proxy.status_code']}` |")
+        if is_valid(results.get('http.proxy.status_code')): md.append(f"| **Proxy Status** | `{results['http.proxy.status_code']}` |")
         if is_valid(results.get('user_agent.original')): md.append(f"| **User Agent** | `{results['user_agent.original']}` |")
         if is_valid(results.get('hashicorp_vault.audit.request.headers.user-agent')): md.append(f"| **Vault UA** | `{results['hashicorp_vault.audit.request.headers.user-agent']}` |")
         if is_valid(results.get('source.enrichment.site_name_and_system')): md.append(f"| **Site/System** | `{results['source.enrichment.site_name_and_system']}` |")
@@ -202,10 +202,10 @@ if st.button("🚀 Generate Final Case Template", type="primary"):
             for link in st.session_state.external_links:
                 md.append(f"- [{link['title']}]({link['url']})")
 
-        # DEDICATED SUMMARY SECTION
+        # SUMMARY SECTION
         md += ["", "## 🗒️ Summary", summary_val if summary_val else "No summary provided."]
 
-        # FINAL CONCLUSION
+        # CONCLUSION
         md += ["", "## 🏁 Conclusion and Next Steps", f"**Final Determination:** {verdict}", "", "**Next Steps:**"]
         for s in next_steps:
             md.append(f"- [x] {s}")
