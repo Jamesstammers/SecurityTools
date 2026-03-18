@@ -81,8 +81,8 @@ with t_col2:
     t_input_str = st.text_input("Time (HH:MM:SS)", value=now_t, key="t_str_input", placeholder="HH:MM:SS")
 with t_col3: t_desc = st.text_input("Description", key="t_desc_input", placeholder="e.g. User logged in...")
 
-# FIX: Added [1, 1, 1] to provide required arguments for columns
-_, add_btn_col, _ = st.columns([1, 1, 1])
+# FIXED: Provided column count '3' to resolve TypeError
+_, add_btn_col, _ = st.columns(3)
 with add_btn_col:
     if st.button("Add Event", use_container_width=True):
         if t_desc and t_input_str:
@@ -110,11 +110,11 @@ activity_type = st.selectbox("⚠️ Activity Type:", ["Normal Activity", "Malwa
 
 with st.expander("🔗 External Investigation Links", expanded=True):
     l_c1, l_c2 = st.columns(2)
-    l_t = l_c1.text_input("Title", key="l_title", placeholder="e.g. VirusTotal")
+    l_t = l_c1.text_input("Link Title", key="l_title", placeholder="e.g. VirusTotal")
     l_u = l_c2.text_input("URL", key="l_url", placeholder="e.g. www.virustotal.com")
     
-    # FIX: Added [1, 1, 1] for column consistency
-    _, l_btn_col, _ = st.columns([1, 1, 1])
+    # FIXED: Provided column count '3'
+    _, l_btn_col, _ = st.columns(3)
     with l_btn_col:
         if st.button("Add Link", use_container_width=True):
             if l_t and l_u:
@@ -145,7 +145,7 @@ st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / 
 
 # --- GENERATE LOGIC ---
 st.write("") 
-# FIX: Standardised centering columns
+# FIXED: Provided column weights list
 _, gen_col, _ = st.columns([0.5, 1, 0.5])
 with gen_col:
     if st.button("🚀 Generate Final Case Report", type="primary", use_container_width=True):
@@ -175,7 +175,7 @@ if st.session_state.show_template:
 
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
     
-    # Key Information Table with non-breaking spaces for column width
+    # Key Information Table with non-breaking spaces for width
     md += ["", "## 📋 Key Information", "| Field&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Value |", "| :--- | :--- |"]
     for field in fields:
         if is_valid(res.get(field)):
@@ -216,7 +216,7 @@ if st.session_state.show_template:
         html(html_code, height=400)
 
 st.divider()
-# FIX: Centered Reset button
+# FIXED: Provided column weights list
 _, res_col, _ = st.columns([1, 0.5, 1])
 with res_col:
     st.button("🔄 Reset All", on_click=clear_all, use_container_width=True)
