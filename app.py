@@ -109,17 +109,32 @@ activity_type = st.selectbox("⚠️ Activity Type:", ["Normal Activity", "Malwa
 
 with st.expander("🔗 External Investigation Links", expanded=True):
     l_c1, l_c2 = st.columns(2)
-    l_t = l_c1.text_input("Link Title", key="l_title")
-    l_u = l_c2.text_input("URL", key="l_url")
+    l_t = l_c1.text_input("Link Title", key="l_title", placeholder="e.g. VirusTotal")
+    l_u = l_c2.text_input("URL", key="l_url", placeholder="e.g. www.virustotal.com")
+    
     _, l_btn, _ = st.columns([1, 1, 1])
     with l_btn:
         if st.button("Add Link", use_container_width=True):
             if l_t and l_u:
-                st.session_state.external_links.append({"title": l_t, "url": l_u})
+                # Protocol Sanitisation for Kibana rendering
+                clean_url = l_u.strip()
+                if not clean_url.startswith(("http://", "https://")):
+                    clean_url = "https://" + clean_url
+                
+                st.session_state.external_links.append({"title": l_t, "url": clean_url})
                 st.rerun()
+
+    # Display added links with individual delete buttons
     if st.session_state.external_links:
-        for link in st.session_state.external_links:
-            st.caption(f"✅ Added: **{link['title']}**")
+        st.write("---")
+        for i, link in enumerate(st.session_state.external_links):
+            link_cols = st.columns([3, 1])
+            link_cols.caption(f"🔗 [{link['title']}]({link['url']})")
+            # Unique key for each delete button using the index
+            if link_cols.button("🗑️", key=f"del_link_{i}"):
+                st.session_state.external_links.pop(i)
+                st.rerun()
+
 
 st.text_area("Investigation Details:", height=150, key="analysis")
 st.divider()
