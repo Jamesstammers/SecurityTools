@@ -134,9 +134,16 @@ st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / 
 
 # --- GENERATE LOGIC ---
 st.write("") # Spacer
-if st.button("🚀 Generate Final Case Report", type="primary"):
-    if not st.session_state.raw_input.strip(): st.error("❌ Please paste JSON first!")
-    else: st.session_state.show_template = True
+# Create 3 columns: [Outer, Center, Outer]
+gen_col1, gen_col2, gen_col3 = st.columns([1, 2, 1]) 
+
+with gen_col2:
+    if st.button("🚀 Generate Final Case Report", type="primary", use_container_width=True):
+        if not st.session_state.raw_input.strip(): 
+            st.error("❌ Please paste JSON first!")
+        else: 
+            st.session_state.show_template = True
+
 
 if st.session_state.show_template:
     fields = ["kibana.alert.rule.name", "process.command_line", "user.name.text", "host.name", "kibana.alert.original_time", "source.ip", "destination.ip"]
@@ -181,4 +188,7 @@ if st.session_state.show_template:
         html(html_code, height=400)
 
 st.divider()
-st.button("🔄 Reset All Fields", on_click=clear_all)
+# --- RESET LOGIC ---
+res_col1, res_col2, res_col3 = st.columns([1, 1, 1])
+with res_col2:
+    st.button("🔄 Reset All Fields", on_click=clear_all, use_container_width=True)
