@@ -41,17 +41,14 @@ def clear_all():
 def auto_inject_alert_time():
     raw_json = st.session_state.get('raw_input', '')
     if raw_json.strip():
-        # Look for the alert timestamp in the JSON
         field = "kibana.alert.original_time"
         pattern = rf'"{re.escape(field)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
         match = re.search(pattern, raw_json, re.DOTALL)
         
         if match:
             ts = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
-            # Standardise format to YYYY-MM-DDTHH:MM:SS.000Z
             ts_formatted = ts.split(".")[0] + ".000Z" if "." in ts else ts
             
-            # Only add if it doesn't already exist in the timeline
             exists = any(item['Event Description'] == "**ALERT TRIGGERED**" for item in st.session_state.timeline_data)
             if not exists:
                 st.session_state.timeline_data.append({
@@ -67,7 +64,6 @@ st.caption("v6.3 | SOC Investigation & Reporting Tool")
 # --- ALERT DATA ---
 st.subheader("📋 Alert Data")
 st.info("💡 Paste the raw Kibana JSON. The alert trigger time will be automatically added to your timeline below.")
-# on_change triggers the auto-injection as soon as the user finishes pasting/typing
 st.text_area("Paste Raw Kibana JSON", height=150, key="raw_input", on_change=auto_inject_alert_time)
 st.divider()
 
@@ -80,7 +76,7 @@ st.divider()
 st.subheader("📅 Timeline of Events")
 st.info("💡 Use the pickers to log activity. Events are automatically sorted by time.")
 
-t_col1, t_col2, t_col3 = st.columns([1, 1, 2])
+t_col1, t_col2, t_col3 = st.columns(3)
 with t_col1: d_input = st.date_input("Date")
 with t_col2: t_input = st.time_input("Time")
 with t_col3: t_desc = st.text_input("Event Description", placeholder="e.g. Process executed...", key="t_desc_input")
@@ -97,9 +93,9 @@ if st.session_state.timeline_data:
     st.write("### Current Timeline")
     for i, entry in enumerate(st.session_state.timeline_data):
         row_cols = st.columns([1.5, 3, 0.5])
-        row_cols.markdown(f"`{entry['Timestamp']}`")
-        row_cols.write(entry['Event Description'])
-        if row_cols.button("🗑️", key=f"del_{i}"):
+        row_cols[0].markdown(f"`{entry['Timestamp']}`")
+        row_cols[1].write(entry['Event Description'])
+        if row_cols[2].button("🗑️", key=f"del_{i}"):
             st.session_state.timeline_data.pop(i)
             st.rerun()
     
@@ -141,7 +137,6 @@ if st.button("🚀 Generate Final Case Report", type="primary"):
         st.session_state.show_template = True
 
 if st.session_state.show_template:
-    # 1. Extraction from JSON
     fields = [
         "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", 
         "signal.rule.threat.technique.name", "kibana.alert.rule.threat.technique.id", 
@@ -163,7 +158,6 @@ if st.session_state.show_template:
 
     def is_valid(v): return v and str(v).strip() not in ["", "Not Found", "N/A", "None", "[]"]
 
-    # 2. Build Markdown
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
     md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
     
@@ -173,9 +167,8 @@ if st.session_state.show_template:
             md.append(f"| **{clean_label}** | `{res[field]}` |")
 
     md += ["", "## 🎯 Potential Impact", impact_text or "N/A"]
-    
     md += ["", "## 📅 Timeline", "| Timestamp | Event Description |", "| :--- | :--- |"]
-    # Final sort of all data in session state
+    
     for e in sorted(st.session_state.timeline_data, key=lambda x: x['Timestamp']):
         md.append(f"| `{e['Timestamp']}` | {e['Event Description']} |")
 
