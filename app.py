@@ -4,30 +4,27 @@ from datetime import datetime
 from streamlit.components.v1 import html
 
 # 1. SETUP & STYLE
-st.set_page_config(page_title="SOC Case Builder", page_icon="🛡️", layout="centered")
+st.set_page_config(page_title="SOC Case Builder", page_icon="🛡️", layout="wide")
 
 st.markdown("""
     <style>
-    /* Use Streamlit's native theme variables so it works in Dark & Light mode */
+    /* Theme-aware text boxes for Dark/Light mode visibility */
     .stTextArea textarea, .stTextInput input { 
         font-family: 'Courier New', monospace !important; 
         font-size: 13px !important; 
-        /* This picks up the theme's background and text colors automatically */
         background-color: var(--background-color) !important; 
         color: var(--text-color) !important; 
         border: 1px solid rgba(128, 128, 128, 0.3) !important;
+        caret-color: var(--text-color) !important;
     }
+    /* Ensure placeholders are visible in dark mode */
+    ::placeholder { color: var(--text-color) !important; opacity: 0.5; }
     
-    /* Ensures the cursor (caret) is always visible by matching text color */
-    .stTextArea textarea { caret-color: var(--text-color) !important; }
-    .stTextInput input { caret-color: var(--text-color) !important; }
-
     .stButton>button { width: 100%; border-radius: 4px; height: 3em; font-weight: bold; }
     footer {visibility: hidden;}
     .stAlert { padding: 10px; font-size: 14px; }
     </style>
     """, unsafe_allow_html=True)
-
 
 # Initialize Session States
 if 'timeline_data' not in st.session_state: st.session_state.timeline_data = []
@@ -38,7 +35,7 @@ def clear_all():
     st.session_state.timeline_data = []
     st.session_state.external_links = []
     st.session_state.show_template = False
-    widget_keys = ['raw_input', 'impact', 't_desc_input', 'act_type', 'l_title', 'l_url', 'analysis', 'verdict', 'summary', 'steps']
+    widget_keys = ['raw_input', 'impact', 't_str_input', 't_desc_input', 'act_type', 'l_title', 'l_url', 'analysis', 'verdict', 'summary', 'steps']
     for key in widget_keys:
         if key in st.session_state:
             if key == 'steps': st.session_state[key] = []
@@ -53,17 +50,12 @@ def auto_inject_alert_time():
         field = "kibana.alert.original_time"
         pattern = rf'"{re.escape(field)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
         match = re.search(pattern, raw_json, re.DOTALL)
-        
         if match:
             ts = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
-            ts_formatted = ts.split(".")[0] + ".000Z" if "." in ts else ts
-            
+            ts_formatted = ts.split(".") + ".000Z" if "." in ts else ts
             exists = any(item['Event Description'] == "**ALERT TRIGGERED**" for item in st.session_state.timeline_data)
             if not exists:
-                st.session_state.timeline_data.append({
-                    "Timestamp": ts_formatted, 
-                    "Event Description": "**ALERT TRIGGERED**"
-                })
+                st.session_state.timeline_data.append({"Timestamp": ts_formatted, "Event Description": "**ALERT TRIGGERED**"})
                 st.session_state.timeline_data.sort(key=lambda x: x['Timestamp'])
 
 # --- UI HEADER ---
@@ -72,7 +64,6 @@ st.caption("v6.3 | SOC Investigation & Reporting Tool")
 
 # --- ALERT DATA ---
 st.subheader("📋 Alert Data")
-st.info("💡 Paste the raw Kibana JSON. The alert trigger time will be automatically added to your timeline below.")
 st.text_area("Paste Raw Kibana JSON", height=150, key="raw_input", on_change=auto_inject_alert_time)
 st.divider()
 
@@ -83,132 +74,107 @@ st.divider()
 
 # --- TIMELINE OF EVENTS ---
 st.subheader("📅 Timeline of Events")
-st.info("💡 Use the Date picker and enter Time as HH:MM:SS.")
-
-t_col1, t_col2, t_col3 = st.columns([1, 1, 2])
-with t_col1: 
-    d_input = st.date_input("Date")
+t_col1, t_col2, t_col3 = st.columns(3)
+with t_col1: d_input = st.date_input("Date")
 with t_col2: 
-    # Using text_input allows for SS (seconds). 
-    # Defaulting value to current time for convenience.
-    now_time = datetime.now().strftime("%H:%M:%S")
-    t_input_str = st.text_input("Time (HH:MM:SS)", value=now_time, key="t_str_input")
-with t_col3: 
-    t_desc = st.text_input("Event Description", placeholder="e.g. Process executed...", key="t_desc_input")
+    now_t = datetime.now().strftime("%H:%M:%S")
+    t_input_str = st.text_input("Time (HH:MM:SS)", value=now_t, key="t_str_input")
+with t_col3: t_desc = st.text_input("Event Description", key="t_desc_input", placeholder="e.g. User logged in...")
 
 if st.button("Add Event to Timeline"):
     if t_desc and t_input_str:
-        try:
-            # Combine the date picker and the manual time string
+        if re.match(r"^\d{2}:\d{2}:\d{2}$", t_input_str):
             formatted_ts = f"{d_input}T{t_input_str}.000Z"
-            
-            # Simple regex check to ensure user entered HH:MM:SS correctly
-            if re.match(r"^\d{2}:\d{2}:\d{2}$", t_input_str):
-                st.session_state.timeline_data.append({"Timestamp": formatted_ts, "Event Description": t_desc})
-                st.session_state.timeline_data.sort(key=lambda x: x['Timestamp'])
-                st.rerun()
-            else:
-                st.error("⚠️ Please enter time in HH:MM:SS format.")
-        except Exception as e:
-            st.error(f"Error formatting timestamp: {e}")
+            st.session_state.timeline_data.append({"Timestamp": formatted_ts, "Event Description": t_desc})
+            st.session_state.timeline_data.sort(key=lambda x: x['Timestamp'])
+            st.rerun()
+        else: st.error("Format time as HH:MM:SS")
 
 if st.session_state.timeline_data:
-    st.write("### Current Timeline")
     for i, entry in enumerate(st.session_state.timeline_data):
-        row_cols = st.columns([1.5, 3, 0.5])
-        # Fix for previous column indexing error
-        row_cols[0].markdown(f"`{entry['Timestamp']}`")
-        row_cols[1].write(entry['Event Description'])
-        if row_cols[2].button("🗑️", key=f"del_{i}"):
+        row = st.columns([1.5, 3, 0.5])
+        row[0].markdown(f"`{entry['Timestamp']}`")
+        row[1].write(entry['Event Description'])
+        if row[2].button("🗑️", key=f"del_{i}"):
             st.session_state.timeline_data.pop(i)
             st.rerun()
-    
-    if st.button("Clear Timeline Table"):
-        st.session_state.timeline_data = []
-        st.rerun()
 st.divider()
-
-
 
 # --- TRIAGE & ANALYSIS ---
 st.subheader("🔍 Triage & Analysis")
-activity_type = st.selectbox("⚠️ Activity Type Detected:", ["Normal Activity", "Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
+activity_type = st.selectbox("⚠️ Activity Type:", ["Normal Activity", "Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
 
-with st.expander("🔗 External Investigation Links", expanded=True):
-    l_col1, l_col2 = st.columns(2)
-    l_title = l_col1.text_input("Link Title", key="l_title")
-    l_url = l_col2.text_input("URL", key="l_url")
+with st.expander("🔗 External Links", expanded=True):
+    l_c1, l_c2 = st.columns(2)
+    l_t = l_c1.text_input("Title", key="l_title")
+    l_u = l_c2.text_input("URL", key="l_url")
     if st.button("Add Link"):
-        if l_title and l_url:
-            st.session_state.external_links.append({"title": l_title, "url": l_url})
+        if l_t and l_u:
+            st.session_state.external_links.append({"title": l_t, "url": l_u})
             st.rerun()
     if st.session_state.external_links:
         for link in st.session_state.external_links:
             st.caption(f"✅ Added: **{link['title']}**")
 
-analysis_val = st.text_area("Investigation Analysis Details:", height=150, key="analysis")
+st.text_area("Investigation Details:", height=150, key="analysis")
 st.divider()
 
 # --- SUMMARY & CONCLUSION ---
 st.subheader("🏁 Summary & Conclusion")
-verdict = st.radio("Final Categorisation", ["Benign", "True Positive", "False Positive"], horizontal=True, key="verdict")
-summary_val = st.text_area("Final Summary", key="summary")
-next_steps = st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"], key="steps")
+st.radio("Verdict", ["Benign", "True Positive", "False Positive"], horizontal=True, key="verdict")
+st.text_area("Final Summary", key="summary")
+st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"], key="steps")
 
 # --- GENERATE LOGIC ---
 if st.button("🚀 Generate Final Case Report", type="primary"):
-    if not st.session_state.raw_input.strip():
-        st.error("❌ Please paste JSON first!")
-    else:
-        st.session_state.show_template = True
+    if not st.session_state.raw_input.strip(): st.error("❌ Please paste JSON first!")
+    else: st.session_state.show_template = True
 
 if st.session_state.show_template:
+    # Full extraction list
     fields = [
         "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", 
-        "signal.rule.threat.technique.name", "kibana.alert.rule.threat.technique.id", 
-        "kibana.alert.rule.threat.technique.reference", "process.command_line", 
-        "process.parent.executable", "user.name.text", "host.name", "winlog.event_id", 
-        "kibana.alert.original_time", "kibana.alert.reason", 
-        "kibana.alert.rule.false_positives","url.original", "source.enrichment.site_name_and_system", 
-        "destination.ip", "source.ip", "source.port", "destination.port", 
-        "destination.bytes", "user_agent.original", "event.action", 
-        "http.proxy.status_code", "hashicorp_vault.audit.request.headers.user-agent"
+        "process.command_line", "process.parent.executable", "user.name.text", 
+        "host.name", "winlog.event_id", "kibana.alert.original_time", 
+        "destination.ip", "source.ip", "event.action"
     ]
     
     res = {f: "" for f in fields}
     for f in fields:
         pattern = rf'"{re.escape(f)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
         match = re.search(pattern, st.session_state.raw_input, re.DOTALL)
-        if match: 
-            res[f] = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
+        if match: res[f] = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
 
     def is_valid(v): return v and str(v).strip() not in ["", "Not Found", "N/A", "None", "[]"]
 
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
-    md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
     
+    md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
     for field in fields:
         if is_valid(res.get(field)):
-            clean_label = field.replace('.', ' ').replace('_', ' ').title()
-            md.append(f"| **{clean_label}** | `{res[field]}` |")
+            label = field.replace('.', ' ').title()
+            md.append(f"| **{label}** | `{res[field]}` |")
 
-    md += ["", "## 🎯 Potential Impact", impact or "N/A"]
-    md += ["", "## 📅 Timeline", "| Timestamp | Event Description |", "| :--- | :--- |"]
+    md += ["", "## 🎯 Potential Impact", st.session_state.get('impact', 'N/A') or "N/A"]
     
+    md += ["", "## 📅 Timeline", "| Timestamp | Event Description |", "| :--- | :--- |"]
     for e in sorted(st.session_state.timeline_data, key=lambda x: x['Timestamp']):
         md.append(f"| `{e['Timestamp']}` | {e['Event Description']} |")
 
-    md += ["", "## 🔍 Triage & Analysis", f"**Activity Type:** {activity_type}", "", "**Analysis Details:**", analysis_val or "Pending."]
+    md += ["", f"## 🔍 Triage & Analysis\n**Activity Type:** {st.session_state.act_type}\n\n**Details:**\n{st.session_state.get('analysis', 'N/A')}"]
+    
     if st.session_state.external_links:
         md += ["", "**External Links:**"]
         for l in st.session_state.external_links: md.append(f"- [{l['title']}]({l['url']})")
 
-    md += ["", f"## 🏁 Conclusion\n**Verdict:** {verdict}\n\n**Summary:** {summary_val}\n\n**Next Steps:**"]
-    for s in next_steps: md.append(f"- [x] {s}")
+    md += ["", f"## 🏁 Conclusion\n**Verdict:** {st.session_state.verdict}\n\n**Summary:** {st.session_state.summary}"]
+    if st.session_state.steps:
+        md += ["", "**Next Steps:**"]
+        for s in st.session_state.steps: md.append(f"- [x] {s}")
 
     final_md = "\n".join(md)
     st.success("✅ Template Generated!")
-    t1, t2 = st.tabs(["👁️ Preview", "📋 Copy Template"])
+    t1, t2 = st.tabs(["👁️ Preview", "📋 Copy"])
     with t1: st.markdown(final_md)
     with t2:
         html_code = f"""
