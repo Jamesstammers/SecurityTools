@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 from streamlit.components.v1 import html
 
-# 1. SETUP & STYLE
+# 1. SETUP & STYLE - Set to CENTERED
 st.set_page_config(page_title="SOC Case Builder", page_icon="🛡️", layout="centered")
 
 st.markdown("""
@@ -81,14 +81,14 @@ st.divider()
 
 # --- TIMELINE OF EVENTS ---
 st.subheader("📅 Timeline of Events")
-t_col1, t_col2, t_col3 = st.columns(3)
+t_col1, t_col2, t_col3 = st.columns([1, 1, 1])
 with t_col1: d_input = st.date_input("Date")
 with t_col2: 
     now_t = datetime.now().strftime("%H:%M:%S")
     t_input_str = st.text_input("Time (HH:MM:SS)", value=now_t, key="t_str_input")
-with t_col3: t_desc = st.text_input("Event Description", key="t_desc_input", placeholder="e.g. User logged in...")
+with t_col3: t_desc = st.text_input("Description", key="t_desc_input", placeholder="e.g. Process executed...")
 
-if st.button("Add Event to Timeline"):
+if st.button("Add Event"):
     if t_desc and t_input_str:
         if re.match(r"^\d{2}:\d{2}:\d{2}$", t_input_str):
             formatted_ts = f"{d_input}T{t_input_str}.000Z"
@@ -133,18 +133,13 @@ st.text_area("Final Summary", key="summary")
 st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"], key="steps")
 
 # --- GENERATE LOGIC ---
+st.write("") # Spacer
 if st.button("🚀 Generate Final Case Report", type="primary"):
     if not st.session_state.raw_input.strip(): st.error("❌ Please paste JSON first!")
     else: st.session_state.show_template = True
 
 if st.session_state.show_template:
-    # Full extraction list
-    fields = [
-        "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", "kibana.alert.rule.threat.technique.id", "user.name.text", 
-        "host.name", "source.enrichment.site_name_and_system", "winlog.event_id", "kibana.alert.original_time", 
-        "destination.ip", "destination.port", "source.ip", "source.port", "process.command_line", "process.parent.executable", "url.original", "destination.bytes", "event.action"
-    ]
-    
+    fields = ["kibana.alert.rule.name", "process.command_line", "user.name.text", "host.name", "kibana.alert.original_time", "source.ip", "destination.ip"]
     res = {f: "" for f in fields}
     for f in fields:
         pattern = rf'"{re.escape(f)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
@@ -154,7 +149,6 @@ if st.session_state.show_template:
     def is_valid(v): return v and str(v).strip() not in ["", "Not Found", "N/A", "None", "[]"]
 
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
-    
     md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
     for field in fields:
         if is_valid(res.get(field)):
@@ -162,21 +156,11 @@ if st.session_state.show_template:
             md.append(f"| **{label}** | `{res[field]}` |")
 
     md += ["", "## 🎯 Potential Impact", st.session_state.get('impact', 'N/A') or "N/A"]
-    
     md += ["", "## 📅 Timeline", "| Timestamp | Event Description |", "| :--- | :--- |"]
     for e in sorted(st.session_state.timeline_data, key=lambda x: x['Timestamp']):
         md.append(f"| `{e['Timestamp']}` | {e['Event Description']} |")
 
-    md += ["", f"## 🔍 Triage & Analysis\n**Activity Type:** {st.session_state.act_type}\n\n**Details:**\n{st.session_state.get('analysis', 'N/A')}"]
-    
-    if st.session_state.external_links:
-        md += ["", "**External Links:**"]
-        for l in st.session_state.external_links: md.append(f"- [{l['title']}]({l['url']})")
-
     md += ["", f"## 🏁 Conclusion\n**Verdict:** {st.session_state.verdict}\n\n**Summary:** {st.session_state.summary}"]
-    if st.session_state.steps:
-        md += ["", "**Next Steps:**"]
-        for s in st.session_state.steps: md.append(f"- [x] {s}")
 
     final_md = "\n".join(md)
     st.success("✅ Template Generated!")
