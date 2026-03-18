@@ -134,7 +134,7 @@ if st.session_state.show_template:
     # Full extraction list
     fields = [
         "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", "kibana.alert.rule.threat.technique.id", "user.name.text", 
-        "host.name", "winlog.event_id", "kibana.alert.original_time", 
+        "host.name", "source.enrichment.site_name_and_system", "winlog.event_id", "kibana.alert.original_time", 
         "destination.ip", "destination.port", "source.ip", "source.port", "process.command_line", "process.parent.executable", "url.original", "destination.bytes", "event.action"
     ]
     
