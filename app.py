@@ -8,7 +8,6 @@ st.set_page_config(page_title="SOC Case Builder", page_icon="🛡️", layout="c
 
 st.markdown("""
     <style>
-    /* Theme-aware text boxes for Dark/Light mode visibility */
     .stTextArea textarea, .stTextInput input { 
         font-family: 'Courier New', monospace !important; 
         font-size: 13px !important; 
@@ -17,10 +16,18 @@ st.markdown("""
         border: 1px solid rgba(128, 128, 128, 0.3) !important;
         caret-color: var(--text-color) !important;
     }
-    /* Ensure placeholders are visible in dark mode */
     ::placeholder { color: var(--text-color) !important; opacity: 0.5; }
     
-    .stButton>button { width: 100%; border-radius: 4px; height: 3em; font-weight: bold; }
+    /* Center all buttons and limit their width for a cleaner look */
+    div.stButton > button {
+        display: block;
+        margin: 0 auto !important;
+        max-width: 350px;
+        border-radius: 4px; 
+        height: 3em; 
+        font-weight: bold;
+    }
+    
     footer {visibility: hidden;}
     .stAlert { padding: 10px; font-size: 14px; }
     </style>
