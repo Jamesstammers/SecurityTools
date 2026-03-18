@@ -49,7 +49,7 @@ def auto_inject_alert_time():
         match = re.search(pattern, raw_json, re.DOTALL)
         if match:
             ts = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
-            ts_formatted = ts.split(".") + ".000Z" if "." in ts else ts
+            ts_formatted = ts.split(".")[0] + ".000Z" if "." in ts else ts
             exists = any(item['Event Description'] == "**ALERT TRIGGERED**" for item in st.session_state.timeline_data)
             if not exists:
                 st.session_state.timeline_data.append({"Timestamp": ts_formatted, "Event Description": "**ALERT TRIGGERED**"})
@@ -81,7 +81,8 @@ with t_col2:
     t_input_str = st.text_input("Time (HH:MM:SS)", value=now_t, key="t_str_input", placeholder="HH:MM:SS")
 with t_col3: t_desc = st.text_input("Description", key="t_desc_input", placeholder="e.g. User logged in...")
 
-_, add_btn_col, _ = st.columns()
+# Fixed column argument for Add Event button
+_, add_btn_col, _ = st.columns([1, 1, 1])
 with add_btn_col:
     if st.button("Add Event", use_container_width=True):
         if t_desc and t_input_str:
@@ -93,6 +94,7 @@ with add_btn_col:
             else: st.error("Format time as HH:MM:SS")
 
 if st.session_state.timeline_data:
+    st.write("")
     for i, entry in enumerate(st.session_state.timeline_data):
         row = st.columns([1.5, 3, 0.5])
         row[0].markdown(f"`{entry['Timestamp']}`")
@@ -112,7 +114,8 @@ with st.expander("🔗 External Investigation Links", expanded=True):
     l_t = l_c1.text_input("Link Title", key="l_title", placeholder="e.g. VirusTotal")
     l_u = l_c2.text_input("URL", key="l_url", placeholder="e.g. www.virustotal.com")
     
-    _, l_btn_col, _ = st.columns()
+    # Fixed column argument for Add Link button
+    _, l_btn_col, _ = st.columns([1, 1, 1])
     with l_btn_col:
         if st.button("Add Link", use_container_width=True):
             if l_t and l_u:
@@ -125,7 +128,7 @@ with st.expander("🔗 External Investigation Links", expanded=True):
     if st.session_state.external_links:
         st.write("---")
         for i, link in enumerate(st.session_state.external_links):
-            link_row = st.columns([4, 1])
+            link_row = st.columns([4, 0.5])
             link_row[0].caption(f"🔗 [{link['title']}]({link['url']})")
             if link_row[1].button("🗑️", key=f"del_link_{i}"):
                 st.session_state.external_links.pop(i)
@@ -143,6 +146,7 @@ st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / 
 
 # --- GENERATE LOGIC ---
 st.write("") 
+# Fixed column argument for Generate button
 _, gen_col, _ = st.columns([0.5, 1, 0.5])
 with gen_col:
     if st.button("🚀 Generate Final Case Report", type="primary", use_container_width=True):
@@ -172,6 +176,7 @@ if st.session_state.show_template:
 
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
     
+    # Key Information Table with non-breaking spaces for column width
     md += ["", "## 📋 Key Information", "| Field&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Value |", "| :--- | :--- |"]
     for field in fields:
         if is_valid(res.get(field)):
@@ -212,6 +217,7 @@ if st.session_state.show_template:
         html(html_code, height=400)
 
 st.divider()
+# Fixed column argument for Reset button
 _, res_col, _ = st.columns([1, 0.5, 1])
 with res_col:
     st.button("🔄 Reset All", on_click=clear_all, use_container_width=True)
