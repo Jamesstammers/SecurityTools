@@ -155,14 +155,13 @@ with gen_col:
 if st.session_state.show_template:
     fields = [
         "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", 
-        "signal.rule.threat.technique.name", "kibana.alert.rule.threat.technique.id", 
-        "kibana.alert.rule.threat.technique.reference", "process.command_line", 
+        "signal.rule.threat.technique.name", "kibana.alert.rule.threat.technique.id", "kibana.alert.reason", 
+        "kibana.alert.rule.false_positives", "process.command_line", 
         "process.parent.executable", "user.name.text", "host.name", "winlog.event_id", 
-        "kibana.alert.original_time", "kibana.alert.reason", 
-        "kibana.alert.rule.false_positives","url.original", "source.enrichment.site_name_and_system", 
-        "destination.ip", "source.ip", "source.port", "destination.port", 
-        "destination.bytes", "user_agent.original", "event.action", 
-        "http.proxy.status_code", "hashicorp_vault.audit.request.headers.user-agent"
+        "kibana.alert.original_time","url.original", "source.enrichment.site_name_and_system", 
+        "destination.ip","destination.port","source.ip", "source.port", 
+        "destination.bytes", "user_agent.original", 
+        "http.proxy.status_code", "hashicorp_vault.audit.request.headers.user-agent", "event.action"
     ]
     
     res = {f: "" for f in fields}
