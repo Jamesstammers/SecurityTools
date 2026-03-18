@@ -81,7 +81,7 @@ with t_col2:
     t_input_str = st.text_input("Time (HH:MM:SS)", value=now_t, key="t_str_input", placeholder="HH:MM:SS")
 with t_col3: t_desc = st.text_input("Description", key="t_desc_input", placeholder="e.g. User logged in...")
 
-_, add_btn_col, _ = st.columns([1, 1, 1])
+_, add_btn_col, _ = st.columns()
 with add_btn_col:
     if st.button("Add Event", use_container_width=True):
         if t_desc and t_input_str:
@@ -112,29 +112,24 @@ with st.expander("🔗 External Investigation Links", expanded=True):
     l_t = l_c1.text_input("Link Title", key="l_title", placeholder="e.g. VirusTotal")
     l_u = l_c2.text_input("URL", key="l_url", placeholder="e.g. www.virustotal.com")
     
-    _, l_btn, _ = st.columns([1, 1, 1])
-    with l_btn:
+    _, l_btn_col, _ = st.columns()
+    with l_btn_col:
         if st.button("Add Link", use_container_width=True):
             if l_t and l_u:
-                # Protocol Sanitisation for Kibana rendering
                 clean_url = l_u.strip()
                 if not clean_url.startswith(("http://", "https://")):
                     clean_url = "https://" + clean_url
-                
                 st.session_state.external_links.append({"title": l_t, "url": clean_url})
                 st.rerun()
 
-    # Display added links with individual delete buttons
     if st.session_state.external_links:
         st.write("---")
         for i, link in enumerate(st.session_state.external_links):
-            link_cols = st.columns([3, 1])
-            link_cols.caption(f"🔗 [{link['title']}]({link['url']})")
-            # Unique key for each delete button using the index
-            if link_cols.button("🗑️", key=f"del_link_{i}"):
+            link_row = st.columns([4, 1])
+            link_row[0].caption(f"🔗 [{link['title']}]({link['url']})")
+            if link_row[1].button("🗑️", key=f"del_link_{i}"):
                 st.session_state.external_links.pop(i)
                 st.rerun()
-
 
 st.text_area("Investigation Details:", height=150, key="analysis")
 st.divider()
@@ -177,7 +172,6 @@ if st.session_state.show_template:
 
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
     
-    # FORCED WIDTH: Using &nbsp; to prevent the Field column from shrinking
     md += ["", "## 📋 Key Information", "| Field&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Value |", "| :--- | :--- |"]
     for field in fields:
         if is_valid(res.get(field)):
@@ -191,12 +185,12 @@ if st.session_state.show_template:
 
     md += ["", f"## 🔍 Triage & Analysis\n**Activity Type:** {st.session_state.act_type}\n\n**Details:**\n{st.session_state.get('analysis', 'Pending.')}"]
     if st.session_state.external_links:
-        md += ["", "**External Links:**"]
+        md += ["", "### 🔗 External Links"]
         for l in st.session_state.external_links: md.append(f"- [{l['title']}]({l['url']})")
 
     md += ["", f"## 🏁 Conclusion\n**Verdict:** {st.session_state.verdict}\n\n**Summary:** {st.session_state.summary}"]
     if st.session_state.steps:
-        md += ["", "**Next Steps:**"]
+        md += ["", "### 📋 Next Steps"]
         for s in st.session_state.steps: md.append(f"- [x] {s}")
 
     final_md = "\n".join(md)
