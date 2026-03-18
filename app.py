@@ -1,5 +1,6 @@
 import streamlit as st
 import re
+from datetime import datetime
 from streamlit.components.v1 import html
 
 # 1. SETUP & STYLE
@@ -28,7 +29,7 @@ def clear_all():
     st.session_state.timeline_data = []
     st.session_state.external_links = []
     st.session_state.show_template = False
-    widget_keys = ['raw_input', 'impact', 't_stamp', 't_desc', 'act_type', 'l_title', 'l_url', 'analysis', 'verdict', 'summary', 'steps']
+    widget_keys = ['raw_input', 'impact', 't_desc_input', 'act_type', 'l_title', 'l_url', 'analysis', 'verdict', 'summary', 'steps']
     for key in widget_keys:
         if key in st.session_state:
             if key == 'steps': st.session_state[key] = []
@@ -36,36 +37,72 @@ def clear_all():
             elif key == 'verdict': st.session_state[key] = "Benign"
             else: st.session_state[key] = ""
 
+# --- AUTO-INJECTION LOGIC ---
+def auto_inject_alert_time():
+    raw_json = st.session_state.get('raw_input', '')
+    if raw_json.strip():
+        # Look for the alert timestamp in the JSON
+        field = "kibana.alert.original_time"
+        pattern = rf'"{re.escape(field)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
+        match = re.search(pattern, raw_json, re.DOTALL)
+        
+        if match:
+            ts = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
+            # Standardise format to YYYY-MM-DDTHH:MM:SS.000Z
+            ts_formatted = ts.split(".")[0] + ".000Z" if "." in ts else ts
+            
+            # Only add if it doesn't already exist in the timeline
+            exists = any(item['Event Description'] == "**ALERT TRIGGERED**" for item in st.session_state.timeline_data)
+            if not exists:
+                st.session_state.timeline_data.append({
+                    "Timestamp": ts_formatted, 
+                    "Event Description": "**ALERT TRIGGERED**"
+                })
+                st.session_state.timeline_data.sort(key=lambda x: x['Timestamp'])
+
 # --- UI HEADER ---
 st.title("🛡️ Incident Case Builder")
 st.caption("v6.3 | SOC Investigation & Reporting Tool")
 
 # --- ALERT DATA ---
 st.subheader("📋 Alert Data")
-st.info("💡 Expand the alert and click on the JSON tab. Click the \"Copy to clipboard\" button in the top right. Paste the raw Kibana JSON export here.")
-raw_json = st.text_area("Paste Raw Kibana JSON", height=150, key="raw_input")
+st.info("💡 Paste the raw Kibana JSON. The alert trigger time will be automatically added to your timeline below.")
+# on_change triggers the auto-injection as soon as the user finishes pasting/typing
+st.text_area("Paste Raw Kibana JSON", height=150, key="raw_input", on_change=auto_inject_alert_time)
 st.divider()
 
 # --- POTENTIAL IMPACT ---
 st.subheader("🎯 Potential Impact")
-st.info("💡 Evaluate the potential damage or risk to operations, data, and reputation.")
-impact_text = st.text_area("Impact Assessment:", height=120, key="impact")
+st.text_area("Impact Assessment:", height=120, key="impact")
 st.divider()
 
 # --- TIMELINE OF EVENTS ---
 st.subheader("📅 Timeline of Events")
-st.info("💡 Log all related activity. When inputting events here, enter the timestamp in format YYYY-MM-DDTHH:MM:SS.000Z. You do no have to enter events in chronological order in this table - they will be organised at the end.")
-t_col1, t_col2 = st.columns(2)
-with t_col1: t_stamp = st.text_input("Timestamp", placeholder="HH:MM:SS", key="t_stamp")
-with t_col2: t_desc = st.text_input("Event Description", placeholder="e.g. Process executed...", key="t_desc")
+st.info("💡 Use the pickers to log activity. Events are automatically sorted by time.")
+
+t_col1, t_col2, t_col3 = st.columns([1, 1, 2])
+with t_col1: d_input = st.date_input("Date")
+with t_col2: t_input = st.time_input("Time")
+with t_col3: t_desc = st.text_input("Event Description", placeholder="e.g. Process executed...", key="t_desc_input")
 
 if st.button("Add Event to Timeline"):
-    if t_stamp and t_desc:
-        st.session_state.timeline_data.append({"Timestamp": t_stamp, "Event Description": t_desc})
+    if t_desc:
+        dt_obj = datetime.combine(d_input, t_input)
+        formatted_ts = dt_obj.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+        st.session_state.timeline_data.append({"Timestamp": formatted_ts, "Event Description": t_desc})
+        st.session_state.timeline_data.sort(key=lambda x: x['Timestamp'])
         st.rerun()
 
 if st.session_state.timeline_data:
-    st.table(st.session_state.timeline_data)
+    st.write("### Current Timeline")
+    for i, entry in enumerate(st.session_state.timeline_data):
+        row_cols = st.columns([1.5, 3, 0.5])
+        row_cols.markdown(f"`{entry['Timestamp']}`")
+        row_cols.write(entry['Event Description'])
+        if row_cols.button("🗑️", key=f"del_{i}"):
+            st.session_state.timeline_data.pop(i)
+            st.rerun()
+    
     if st.button("Clear Timeline Table"):
         st.session_state.timeline_data = []
         st.rerun()
@@ -73,7 +110,6 @@ st.divider()
 
 # --- TRIAGE & ANALYSIS ---
 st.subheader("🔍 Triage & Analysis")
-st.info("💡 Categorise the activity and provide technical details. Use the investigation guide to assist you. Correlate Alerts with additional data sources, Perform in-depth analysis and validation and Consult with internal stakeholders.")
 activity_type = st.selectbox("⚠️ Activity Type Detected:", ["Normal Activity", "Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
 
 with st.expander("🔗 External Investigation Links", expanded=True):
@@ -93,28 +129,26 @@ st.divider()
 
 # --- SUMMARY & CONCLUSION ---
 st.subheader("🏁 Summary & Conclusion")
-st.info("💡 Summarise your findings and verdict. Include a clear reason as to why this event has been categorised this way.")
 verdict = st.radio("Final Categorisation", ["Benign", "True Positive", "False Positive"], horizontal=True, key="verdict")
 summary_val = st.text_area("Final Summary", key="summary")
 next_steps = st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"], key="steps")
 
 # --- GENERATE LOGIC ---
-if st.button("🚀 Generate Final Case Template", type="primary"):
-    if not raw_json.strip():
+if st.button("🚀 Generate Final Case Report", type="primary"):
+    if not st.session_state.raw_input.strip():
         st.error("❌ Please paste JSON first!")
     else:
         st.session_state.show_template = True
 
 if st.session_state.show_template:
-    # 1. FULL LIST OF FIELDS TO EXTRACT
+    # 1. Extraction from JSON
     fields = [
         "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", 
         "signal.rule.threat.technique.name", "kibana.alert.rule.threat.technique.id", 
         "kibana.alert.rule.threat.technique.reference", "process.command_line", 
         "process.parent.executable", "user.name.text", "host.name", "winlog.event_id", 
         "kibana.alert.original_time", "kibana.alert.reason", 
-        "kibana.alert.rule.false_positives", "signal.rule.false_positives", 
-        "url.original", "source.enrichment.site_name_and_system", 
+        "kibana.alert.rule.false_positives","url.original", "source.enrichment.site_name_and_system", 
         "destination.ip", "source.ip", "source.port", "destination.port", 
         "destination.bytes", "user_agent.original", "event.action", 
         "http.proxy.status_code", "hashicorp_vault.audit.request.headers.user-agent"
@@ -123,28 +157,26 @@ if st.session_state.show_template:
     res = {f: "" for f in fields}
     for f in fields:
         pattern = rf'"{re.escape(f)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
-        match = re.search(pattern, raw_json, re.DOTALL)
+        match = re.search(pattern, st.session_state.raw_input, re.DOTALL)
         if match: 
             res[f] = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
 
     def is_valid(v): return v and str(v).strip() not in ["", "Not Found", "N/A", "None", "[]"]
 
-    # 2. BUILD MARKDOWN
+    # 2. Build Markdown
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
-    
     md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
     
-    # DYNAMICALLY ADD ALL EXTRACTED FIELDS TO THE TABLE IF THEY HAVE DATA
     for field in fields:
         if is_valid(res.get(field)):
-            # Clean up the key name for the table (e.g., user.name.text -> User Name Text)
             clean_label = field.replace('.', ' ').replace('_', ' ').title()
             md.append(f"| **{clean_label}** | `{res[field]}` |")
 
     md += ["", "## 🎯 Potential Impact", impact_text or "N/A"]
+    
     md += ["", "## 📅 Timeline", "| Timestamp | Event Description |", "| :--- | :--- |"]
-    full_t = st.session_state.timeline_data + [{"Timestamp": res.get('kibana.alert.original_time', 'T0'), "Event Description": "**ALERT TRIGGERED**"}]
-    for e in sorted(full_t, key=lambda x: x['Timestamp']):
+    # Final sort of all data in session state
+    for e in sorted(st.session_state.timeline_data, key=lambda x: x['Timestamp']):
         md.append(f"| `{e['Timestamp']}` | {e['Event Description']} |")
 
     md += ["", "## 🔍 Triage & Analysis", f"**Activity Type:** {activity_type}", "", "**Analysis Details:**", analysis_val or "Pending."]
