@@ -74,27 +74,40 @@ st.divider()
 
 # --- TIMELINE OF EVENTS ---
 st.subheader("📅 Timeline of Events")
-st.info("💡 Use the pickers to log activity. Events are automatically sorted by time.")
+st.info("💡 Use the Date picker and enter Time as HH:MM:SS.")
 
-t_col1, t_col2, t_col3 = st.columns(3)
-with t_col1: d_input = st.date_input("Date")
-# Adding step=1 enables the seconds field in the time picker
-with t_col2: t_input = st.time_input("Time", step=1) 
-with t_col3: t_desc = st.text_input("Event Description", placeholder="e.g. Process executed...", key="t_desc_input")
+t_col1, t_col2, t_col3 = st.columns([1, 1, 2])
+with t_col1: 
+    d_input = st.date_input("Date")
+with t_col2: 
+    # Using text_input allows for SS (seconds). 
+    # Defaulting value to current time for convenience.
+    now_time = datetime.now().strftime("%H:%M:%S")
+    t_input_str = st.text_input("Time (HH:MM:SS)", value=now_time, key="t_str_input")
+with t_col3: 
+    t_desc = st.text_input("Event Description", placeholder="e.g. Process executed...", key="t_desc_input")
 
 if st.button("Add Event to Timeline"):
-    if t_desc:
-        dt_obj = datetime.combine(d_input, t_input)
-        # %S captures the seconds from the picker
-        formatted_ts = dt_obj.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-        st.session_state.timeline_data.append({"Timestamp": formatted_ts, "Event Description": t_desc})
-        st.session_state.timeline_data.sort(key=lambda x: x['Timestamp'])
-        st.rerun()
+    if t_desc and t_input_str:
+        try:
+            # Combine the date picker and the manual time string
+            formatted_ts = f"{d_input}T{t_input_str}.000Z"
+            
+            # Simple regex check to ensure user entered HH:MM:SS correctly
+            if re.match(r"^\d{2}:\d{2}:\d{2}$", t_input_str):
+                st.session_state.timeline_data.append({"Timestamp": formatted_ts, "Event Description": t_desc})
+                st.session_state.timeline_data.sort(key=lambda x: x['Timestamp'])
+                st.rerun()
+            else:
+                st.error("⚠️ Please enter time in HH:MM:SS format.")
+        except Exception as e:
+            st.error(f"Error formatting timestamp: {e}")
 
 if st.session_state.timeline_data:
     st.write("### Current Timeline")
     for i, entry in enumerate(st.session_state.timeline_data):
         row_cols = st.columns([1.5, 3, 0.5])
+        # Fix for previous column indexing error
         row_cols[0].markdown(f"`{entry['Timestamp']}`")
         row_cols[1].write(entry['Event Description'])
         if row_cols[2].button("🗑️", key=f"del_{i}"):
@@ -105,6 +118,7 @@ if st.session_state.timeline_data:
         st.session_state.timeline_data = []
         st.rerun()
 st.divider()
+
 
 
 # --- TRIAGE & ANALYSIS ---
