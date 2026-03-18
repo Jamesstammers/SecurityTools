@@ -146,7 +146,9 @@ with gen_col2:
 
 
 if st.session_state.show_template:
-    fields = ["kibana.alert.rule.name", "process.command_line", "user.name.text", "host.name", "kibana.alert.original_time", "source.ip", "destination.ip"]
+    fields = ["kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", "kibana.alert.rule.threat.technique.id", "user.name.text", 
+        "host.name", "source.enrichment.site_name_and_system", "winlog.event_id", "kibana.alert.original_time", 
+        "destination.ip", "destination.port", "source.ip", "source.port", "process.command_line", "process.parent.executable", "url.original", "destination.bytes", "event.action"]
     res = {f: "" for f in fields}
     for f in fields:
         pattern = rf'"{re.escape(f)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
