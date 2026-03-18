@@ -17,14 +17,7 @@ st.markdown("""
         caret-color: var(--text-color) !important;
     }
     ::placeholder { color: var(--text-color) !important; opacity: 0.5; }
-    
-    /* Standard button styling */
-    div.stButton > button {
-        border-radius: 4px; 
-        height: 3em; 
-        font-weight: bold;
-    }
-    
+    div.stButton > button { border-radius: 4px; height: 3em; font-weight: bold; }
     footer {visibility: hidden;}
     .stAlert { padding: 10px; font-size: 14px; }
     </style>
@@ -56,9 +49,7 @@ def auto_inject_alert_time():
         match = re.search(pattern, raw_json, re.DOTALL)
         if match:
             ts = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
-            # FIX: Properly join the string after splitting
             ts_formatted = ts.split(".")[0] + ".000Z" if "." in ts else ts
-            
             exists = any(item['Event Description'] == "**ALERT TRIGGERED**" for item in st.session_state.timeline_data)
             if not exists:
                 st.session_state.timeline_data.append({"Timestamp": ts_formatted, "Event Description": "**ALERT TRIGGERED**"})
@@ -85,9 +76,8 @@ with t_col1: d_input = st.date_input("Date")
 with t_col2: 
     now_t = datetime.now().strftime("%H:%M:%S")
     t_input_str = st.text_input("Time (HH:MM:SS)", value=now_t, key="t_str_input")
-with t_col3: t_desc = st.text_input("Description", key="t_desc_input", placeholder="e.g. Process executed...")
+with t_col3: t_desc = st.text_input("Description", key="t_desc_input", placeholder="e.g. User logged in...")
 
-# Center the 'Add Event' button
 _, add_btn_col, _ = st.columns([1, 1, 1])
 with add_btn_col:
     if st.button("Add Event", use_container_width=True):
@@ -139,7 +129,6 @@ st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / 
 
 # --- GENERATE LOGIC ---
 st.write("") 
-# Center the Generate Button
 _, gen_col, _ = st.columns([0.5, 1, 0.5])
 with gen_col:
     if st.button("🚀 Generate Final Case Report", type="primary", use_container_width=True):
@@ -147,9 +136,19 @@ with gen_col:
         else: st.session_state.show_template = True
 
 if st.session_state.show_template:
-    fields = ["kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", "kibana.alert.rule.threat.technique.id", "user.name.text", 
-        "host.name", "source.enrichment.site_name_and_system", "winlog.event_id", "kibana.alert.original_time", 
-        "destination.ip", "destination.port", "source.ip", "source.port", "process.command_line", "process.parent.executable", "url.original", "destination.bytes", "event.action"]
+    # RESTORED FULL LIST OF FIELDS
+    fields = [
+        "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", 
+        "signal.rule.threat.technique.name", "kibana.alert.rule.threat.technique.id", 
+        "kibana.alert.rule.threat.technique.reference", "process.command_line", 
+        "process.parent.executable", "user.name.text", "host.name", "winlog.event_id", 
+        "kibana.alert.original_time", "kibana.alert.reason", 
+        "kibana.alert.rule.false_positives","url.original", "source.enrichment.site_name_and_system", 
+        "destination.ip", "source.ip", "source.port", "destination.port", 
+        "destination.bytes", "user_agent.original", "event.action", 
+        "http.proxy.status_code", "hashicorp_vault.audit.request.headers.user-agent"
+    ]
+    
     res = {f: "" for f in fields}
     for f in fields:
         pattern = rf'"{re.escape(f)}":\s*(?:\[\s*)?"(.*?)"(?=\s*\]|\s*,)'
@@ -159,12 +158,28 @@ if st.session_state.show_template:
     def is_valid(v): return v and str(v).strip() not in ["", "Not Found", "N/A", "None", "[]"]
 
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
+    
+    # RESTORED DYNAMIC KEY INFORMATION TABLE
+    md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
+    for field in fields:
+        if is_valid(res.get(field)):
+            label = field.replace('.', ' ').replace('_', ' ').title()
+            md.append(f"| **{label}** | `{res[field]}` |")
+
     md += ["", "## 🎯 Potential Impact", st.session_state.get('impact', 'N/A') or "N/A"]
     md += ["", "## 📅 Timeline", "| Timestamp | Event Description |", "| :--- | :--- |"]
     for e in sorted(st.session_state.timeline_data, key=lambda x: x['Timestamp']):
         md.append(f"| `{e['Timestamp']}` | {e['Event Description']} |")
 
+    md += ["", f"## 🔍 Triage & Analysis\n**Activity Type:** {st.session_state.act_type}\n\n**Details:**\n{st.session_state.get('analysis', 'Pending.')}"]
+    if st.session_state.external_links:
+        md += ["", "**External Links:**"]
+        for l in st.session_state.external_links: md.append(f"- [{l['title']}]({l['url']})")
+
     md += ["", f"## 🏁 Conclusion\n**Verdict:** {st.session_state.verdict}\n\n**Summary:** {st.session_state.summary}"]
+    if st.session_state.steps:
+        md += ["", "**Next Steps:**"]
+        for s in st.session_state.steps: md.append(f"- [x] {s}")
 
     final_md = "\n".join(md)
     st.success("✅ Template Generated!")
@@ -185,7 +200,6 @@ if st.session_state.show_template:
         html(html_code, height=400)
 
 st.divider()
-# Center the Reset Button
 _, res_col, _ = st.columns([1, 0.5, 1])
 with res_col:
     st.button("🔄 Reset All", on_click=clear_all, use_container_width=True)
