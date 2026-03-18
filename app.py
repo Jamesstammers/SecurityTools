@@ -8,17 +8,26 @@ st.set_page_config(page_title="SOC Case Builder", page_icon="🛡️", layout="w
 
 st.markdown("""
     <style>
+    /* Use Streamlit's native theme variables so it works in Dark & Light mode */
     .stTextArea textarea, .stTextInput input { 
         font-family: 'Courier New', monospace !important; 
         font-size: 13px !important; 
-        background-color: #f1f3f6 !important; 
-        color: #1a1c23 !important; 
+        /* This picks up the theme's background and text colors automatically */
+        background-color: var(--background-color) !important; 
+        color: var(--text-color) !important; 
+        border: 1px solid rgba(128, 128, 128, 0.3) !important;
     }
+    
+    /* Ensures the cursor (caret) is always visible by matching text color */
+    .stTextArea textarea { caret-color: var(--text-color) !important; }
+    .stTextInput input { caret-color: var(--text-color) !important; }
+
     .stButton>button { width: 100%; border-radius: 4px; height: 3em; font-weight: bold; }
     footer {visibility: hidden;}
     .stAlert { padding: 10px; font-size: 14px; }
     </style>
     """, unsafe_allow_html=True)
+
 
 # Initialize Session States
 if 'timeline_data' not in st.session_state: st.session_state.timeline_data = []
