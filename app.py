@@ -81,7 +81,7 @@ with t_col2:
     t_input_str = st.text_input("Time (HH:MM:SS)", value=now_t, key="t_str_input", placeholder="HH:MM:SS")
 with t_col3: t_desc = st.text_input("Description", key="t_desc_input", placeholder="e.g. User logged in...")
 
-# Fixed column argument for Add Event button
+# FIX: Added [1, 1, 1] to provide required arguments for columns
 _, add_btn_col, _ = st.columns([1, 1, 1])
 with add_btn_col:
     if st.button("Add Event", use_container_width=True):
@@ -94,7 +94,6 @@ with add_btn_col:
             else: st.error("Format time as HH:MM:SS")
 
 if st.session_state.timeline_data:
-    st.write("")
     for i, entry in enumerate(st.session_state.timeline_data):
         row = st.columns([1.5, 3, 0.5])
         row[0].markdown(f"`{entry['Timestamp']}`")
@@ -111,10 +110,10 @@ activity_type = st.selectbox("⚠️ Activity Type:", ["Normal Activity", "Malwa
 
 with st.expander("🔗 External Investigation Links", expanded=True):
     l_c1, l_c2 = st.columns(2)
-    l_t = l_c1.text_input("Link Title", key="l_title", placeholder="e.g. VirusTotal")
+    l_t = l_c1.text_input("Title", key="l_title", placeholder="e.g. VirusTotal")
     l_u = l_c2.text_input("URL", key="l_url", placeholder="e.g. www.virustotal.com")
     
-    # Fixed column argument for Add Link button
+    # FIX: Added [1, 1, 1] for column consistency
     _, l_btn_col, _ = st.columns([1, 1, 1])
     with l_btn_col:
         if st.button("Add Link", use_container_width=True):
@@ -146,7 +145,7 @@ st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / 
 
 # --- GENERATE LOGIC ---
 st.write("") 
-# Fixed column argument for Generate button
+# FIX: Standardised centering columns
 _, gen_col, _ = st.columns([0.5, 1, 0.5])
 with gen_col:
     if st.button("🚀 Generate Final Case Report", type="primary", use_container_width=True):
@@ -217,7 +216,7 @@ if st.session_state.show_template:
         html(html_code, height=400)
 
 st.divider()
-# Fixed column argument for Reset button
+# FIX: Centered Reset button
 _, res_col, _ = st.columns([1, 0.5, 1])
 with res_col:
     st.button("🔄 Reset All", on_click=clear_all, use_container_width=True)
