@@ -133,10 +133,9 @@ if st.button("🚀 Generate Final Case Report", type="primary"):
 if st.session_state.show_template:
     # Full extraction list
     fields = [
-        "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", 
-        "process.command_line", "process.parent.executable", "user.name.text", 
+        "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", "kibana.alert.rule.threat.technique.id", "user.name.text", 
         "host.name", "winlog.event_id", "kibana.alert.original_time", 
-        "destination.ip", "source.ip", "event.action"
+        "destination.ip", "destination.port", "source.ip", "source.port", "process.command_line", "process.parent.executable", "url.original", "destination.bytes", "event.action"
     ]
     
     res = {f: "" for f in fields}
