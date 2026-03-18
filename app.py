@@ -49,7 +49,7 @@ def auto_inject_alert_time():
         match = re.search(pattern, raw_json, re.DOTALL)
         if match:
             ts = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
-            ts_formatted = ts.split(".")[0] + ".000Z" if "." in ts else ts
+            ts_formatted = ts.split(".") + ".000Z" if "." in ts else ts
             exists = any(item['Event Description'] == "**ALERT TRIGGERED**" for item in st.session_state.timeline_data)
             if not exists:
                 st.session_state.timeline_data.append({"Timestamp": ts_formatted, "Event Description": "**ALERT TRIGGERED**"})
@@ -61,21 +61,24 @@ st.caption("v6.3 | SOC Investigation & Reporting Tool")
 
 # --- ALERT DATA ---
 st.subheader("📋 Alert Data")
+st.info("💡 Expand the alert and click on the JSON tab. Click the \"Copy to clipboard\" button in the top right. Paste the raw Kibana JSON export here.")
 st.text_area("Paste Raw Kibana JSON", height=150, key="raw_input", on_change=auto_inject_alert_time)
 st.divider()
 
 # --- POTENTIAL IMPACT ---
 st.subheader("🎯 Potential Impact")
+st.info("💡 Evaluate the potential damage or risk to operations, data, and reputation.")
 st.text_area("Impact Assessment:", height=120, key="impact")
 st.divider()
 
 # --- TIMELINE OF EVENTS ---
 st.subheader("📅 Timeline of Events")
+st.info("💡 Log all related activity. Events are automatically sorted by time.")
 t_col1, t_col2, t_col3 = st.columns([1, 1, 1.5])
 with t_col1: d_input = st.date_input("Date")
 with t_col2: 
     now_t = datetime.now().strftime("%H:%M:%S")
-    t_input_str = st.text_input("Time (HH:MM:SS)", value=now_t, key="t_str_input")
+    t_input_str = st.text_input("Time (HH:MM:SS)", value=now_t, key="t_str_input", placeholder="HH:MM:SS")
 with t_col3: t_desc = st.text_input("Description", key="t_desc_input", placeholder="e.g. User logged in...")
 
 _, add_btn_col, _ = st.columns([1, 1, 1])
@@ -90,7 +93,6 @@ with add_btn_col:
             else: st.error("Format time as HH:MM:SS")
 
 if st.session_state.timeline_data:
-    st.write("")
     for i, entry in enumerate(st.session_state.timeline_data):
         row = st.columns([1.5, 3, 0.5])
         row[0].markdown(f"`{entry['Timestamp']}`")
@@ -102,11 +104,12 @@ st.divider()
 
 # --- TRIAGE & ANALYSIS ---
 st.subheader("🔍 Triage & Analysis")
+st.info("💡 Categorise the activity and provide technical details. Use the investigation guide to assist you.")
 activity_type = st.selectbox("⚠️ Activity Type:", ["Normal Activity", "Malware", "Hacking", "Social", "Misuse", "Physical", "Error"], key="act_type")
 
-with st.expander("🔗 External Links", expanded=True):
+with st.expander("🔗 External Investigation Links", expanded=True):
     l_c1, l_c2 = st.columns(2)
-    l_t = l_c1.text_input("Title", key="l_title")
+    l_t = l_c1.text_input("Link Title", key="l_title")
     l_u = l_c2.text_input("URL", key="l_url")
     _, l_btn, _ = st.columns([1, 1, 1])
     with l_btn:
@@ -123,7 +126,8 @@ st.divider()
 
 # --- SUMMARY & CONCLUSION ---
 st.subheader("🏁 Summary & Conclusion")
-st.radio("Verdict", ["Benign", "True Positive", "False Positive"], horizontal=True, key="verdict")
+st.info("💡 Summarise your findings and verdict. Include a clear reason as to why this event has been categorised this way.")
+st.radio("Final Categorisation", ["Benign", "True Positive", "False Positive"], horizontal=True, key="verdict")
 st.text_area("Final Summary", key="summary")
 st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"], key="steps")
 
@@ -136,7 +140,6 @@ with gen_col:
         else: st.session_state.show_template = True
 
 if st.session_state.show_template:
-    # RESTORED FULL LIST OF FIELDS
     fields = [
         "kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", 
         "signal.rule.threat.technique.name", "kibana.alert.rule.threat.technique.id", 
@@ -159,8 +162,8 @@ if st.session_state.show_template:
 
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
     
-    # RESTORED DYNAMIC KEY INFORMATION TABLE
-    md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
+    # FORCED WIDTH: Using &nbsp; to prevent the Field column from shrinking
+    md += ["", "## 📋 Key Information", "| Field&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; | Value |", "| :--- | :--- |"]
     for field in fields:
         if is_valid(res.get(field)):
             label = field.replace('.', ' ').replace('_', ' ').title()
