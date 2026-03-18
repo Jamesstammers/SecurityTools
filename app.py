@@ -3,7 +3,7 @@ import re
 from datetime import datetime
 from streamlit.components.v1 import html
 
-# 1. SETUP & STYLE - Set to CENTERED
+# 1. SETUP & STYLE
 st.set_page_config(page_title="SOC Case Builder", page_icon="🛡️", layout="centered")
 
 st.markdown("""
@@ -18,11 +18,8 @@ st.markdown("""
     }
     ::placeholder { color: var(--text-color) !important; opacity: 0.5; }
     
-    /* Center all buttons and limit their width for a cleaner look */
+    /* Standard button styling */
     div.stButton > button {
-        display: block;
-        margin: 0 auto !important;
-        max-width: 350px;
         border-radius: 4px; 
         height: 3em; 
         font-weight: bold;
@@ -59,7 +56,9 @@ def auto_inject_alert_time():
         match = re.search(pattern, raw_json, re.DOTALL)
         if match:
             ts = match.group(1).replace('\\\\', '\\').replace('\\"', '"')
-            ts_formatted = ts.split(".") + ".000Z" if "." in ts else ts
+            # FIX: Properly join the string after splitting
+            ts_formatted = ts.split(".")[0] + ".000Z" if "." in ts else ts
+            
             exists = any(item['Event Description'] == "**ALERT TRIGGERED**" for item in st.session_state.timeline_data)
             if not exists:
                 st.session_state.timeline_data.append({"Timestamp": ts_formatted, "Event Description": "**ALERT TRIGGERED**"})
@@ -81,23 +80,27 @@ st.divider()
 
 # --- TIMELINE OF EVENTS ---
 st.subheader("📅 Timeline of Events")
-t_col1, t_col2, t_col3 = st.columns([1, 1, 1])
+t_col1, t_col2, t_col3 = st.columns([1, 1, 1.5])
 with t_col1: d_input = st.date_input("Date")
 with t_col2: 
     now_t = datetime.now().strftime("%H:%M:%S")
     t_input_str = st.text_input("Time (HH:MM:SS)", value=now_t, key="t_str_input")
 with t_col3: t_desc = st.text_input("Description", key="t_desc_input", placeholder="e.g. Process executed...")
 
-if st.button("Add Event"):
-    if t_desc and t_input_str:
-        if re.match(r"^\d{2}:\d{2}:\d{2}$", t_input_str):
-            formatted_ts = f"{d_input}T{t_input_str}.000Z"
-            st.session_state.timeline_data.append({"Timestamp": formatted_ts, "Event Description": t_desc})
-            st.session_state.timeline_data.sort(key=lambda x: x['Timestamp'])
-            st.rerun()
-        else: st.error("Format time as HH:MM:SS")
+# Center the 'Add Event' button
+_, add_btn_col, _ = st.columns([1, 1, 1])
+with add_btn_col:
+    if st.button("Add Event", use_container_width=True):
+        if t_desc and t_input_str:
+            if re.match(r"^\d{2}:\d{2}:\d{2}$", t_input_str):
+                formatted_ts = f"{d_input}T{t_input_str}.000Z"
+                st.session_state.timeline_data.append({"Timestamp": formatted_ts, "Event Description": t_desc})
+                st.session_state.timeline_data.sort(key=lambda x: x['Timestamp'])
+                st.rerun()
+            else: st.error("Format time as HH:MM:SS")
 
 if st.session_state.timeline_data:
+    st.write("")
     for i, entry in enumerate(st.session_state.timeline_data):
         row = st.columns([1.5, 3, 0.5])
         row[0].markdown(f"`{entry['Timestamp']}`")
@@ -115,10 +118,12 @@ with st.expander("🔗 External Links", expanded=True):
     l_c1, l_c2 = st.columns(2)
     l_t = l_c1.text_input("Title", key="l_title")
     l_u = l_c2.text_input("URL", key="l_url")
-    if st.button("Add Link"):
-        if l_t and l_u:
-            st.session_state.external_links.append({"title": l_t, "url": l_u})
-            st.rerun()
+    _, l_btn, _ = st.columns([1, 1, 1])
+    with l_btn:
+        if st.button("Add Link", use_container_width=True):
+            if l_t and l_u:
+                st.session_state.external_links.append({"title": l_t, "url": l_u})
+                st.rerun()
     if st.session_state.external_links:
         for link in st.session_state.external_links:
             st.caption(f"✅ Added: **{link['title']}**")
@@ -133,17 +138,13 @@ st.text_area("Final Summary", key="summary")
 st.multiselect("Next Steps", ["Incident escalation required", "Suppress alert / Tune rule", "Close case"], key="steps")
 
 # --- GENERATE LOGIC ---
-st.write("") # Spacer
-# Create 3 columns: [Outer, Center, Outer]
-gen_col1, gen_col2, gen_col3 = st.columns([1, 2, 1]) 
-
-with gen_col2:
+st.write("") 
+# Center the Generate Button
+_, gen_col, _ = st.columns([0.5, 1, 0.5])
+with gen_col:
     if st.button("🚀 Generate Final Case Report", type="primary", use_container_width=True):
-        if not st.session_state.raw_input.strip(): 
-            st.error("❌ Please paste JSON first!")
-        else: 
-            st.session_state.show_template = True
-
+        if not st.session_state.raw_input.strip(): st.error("❌ Please paste JSON first!")
+        else: st.session_state.show_template = True
 
 if st.session_state.show_template:
     fields = ["kibana.alert.rule.name", "kibana.alert.rule.threat.tactic.name", "kibana.alert.rule.threat.technique.id", "user.name.text", 
@@ -158,12 +159,6 @@ if st.session_state.show_template:
     def is_valid(v): return v and str(v).strip() not in ["", "Not Found", "N/A", "None", "[]"]
 
     md = [f"# 🛡️ {res.get('kibana.alert.rule.name', 'Security Alert')}"]
-    md += ["", "## 📋 Key Information", "| Field | Value |", "| :--- | :--- |"]
-    for field in fields:
-        if is_valid(res.get(field)):
-            label = field.replace('.', ' ').title()
-            md.append(f"| **{label}** | `{res[field]}` |")
-
     md += ["", "## 🎯 Potential Impact", st.session_state.get('impact', 'N/A') or "N/A"]
     md += ["", "## 📅 Timeline", "| Timestamp | Event Description |", "| :--- | :--- |"]
     for e in sorted(st.session_state.timeline_data, key=lambda x: x['Timestamp']):
@@ -190,7 +185,7 @@ if st.session_state.show_template:
         html(html_code, height=400)
 
 st.divider()
-# --- RESET LOGIC ---
-res_col1, res_col2, res_col3 = st.columns([1, 1, 1])
-with res_col2:
-    st.button("🔄 Reset All Fields", on_click=clear_all, use_container_width=True)
+# Center the Reset Button
+_, res_col, _ = st.columns([1, 0.5, 1])
+with res_col:
+    st.button("🔄 Reset All", on_click=clear_all, use_container_width=True)
