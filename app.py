@@ -4,7 +4,7 @@ from datetime import datetime
 from streamlit.components.v1 import html
 
 # 1. SETUP & STYLE
-st.set_page_config(page_title="SOC Case Builder", page_icon="🛡️", layout="wide")
+st.set_page_config(page_title="SOC Case Builder", page_icon="🛡️", layout="centered")
 
 st.markdown("""
     <style>
