@@ -192,7 +192,7 @@ if st.session_state.show_template:
             clean_label = field.replace('.', ' ').replace('_', ' ').title()
             md.append(f"| **{clean_label}** | `{res[field]}` |")
 
-    md += ["", "## 🎯 Potential Impact", impact_text or "N/A"]
+    md += ["", "## 🎯 Potential Impact", impact or "N/A"]
     md += ["", "## 📅 Timeline", "| Timestamp | Event Description |", "| :--- | :--- |"]
     
     for e in sorted(st.session_state.timeline_data, key=lambda x: x['Timestamp']):
